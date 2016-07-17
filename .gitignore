@@ -77,3 +77,13 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Visual Studio files
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+Debug/*
+
+# Test files
+file.txt
+out.txt
