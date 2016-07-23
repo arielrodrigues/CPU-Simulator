@@ -7,13 +7,19 @@
 std::bitset<32>* instructions = NULL;
 int instructionsLenght = 0;
 
-void ReadFile(std::string); 
+uint32_t R[64];
+
+void ReadFile(std::string);
+void ExeInstructions();
+std::string ExeOP(int, uint32_t, uint32_t);
 void WriteToFile(std::string);
 
+// main :)
 int main(int argc, char *argv[]) {
 	using namespace std;
 	string inFileName = "file.txt", outFileName = "out.txt";
 	ReadFile(inFileName.c_str());
+	ExeInstructions();
 	WriteToFile(outFileName);
 
 	cout << "Press the ENTER key";
@@ -32,7 +38,7 @@ int fSize(std::string fileInMemory) {
 }
 
 // put the file in memory
-void readTest(std::ifstream* file, std::string* fileInMemory) {
+void filetoMem(std::ifstream* file, std::string* fileInMemory) {
 	file->seekg(0, std::ios::end);
 	fileInMemory->resize(file->tellg());
 	file->seekg(0);
@@ -46,19 +52,20 @@ void readTest(std::ifstream* file, std::string* fileInMemory) {
 // put instructions in memory
 void InstoMem(std::string* fileInMemory) {
 	using namespace std;
-	string token = "\n";
-	unsigned int hexAux, i = 0;
+	char token = '\n';
+	unsigned int i = 0;
+	unsigned long hexAux;
 	size_t pos = string::npos;
 
 	do {
 		pos = fileInMemory->find(token);
-		hexAux = stoi(fileInMemory->substr(0, pos), NULL, 16);
-		cout << "hex: " << std::hex << hexAux << " binary: ";
-		instructions[i] = std::bitset<32>(hexAux);
-		cout << instructions[i++] << endl;
-		if (string::npos != pos)
-			*fileInMemory = fileInMemory->substr(pos + token.size());
-	} while (string::npos != pos);
+		if (pos != string::npos) {
+			hexAux = stoul(fileInMemory->substr(0, pos), NULL, 16);
+			instructions[i++] = std::bitset<32>(hexAux);
+			*fileInMemory = fileInMemory->substr(pos + sizeof(token));
+		}
+	} while (pos != string::npos);
+	fileInMemory = NULL;
 }
 
 // readFile and saves all hexvalues in instructions array
@@ -71,23 +78,79 @@ void ReadFile(std::string fileName) {
 	}
 	else {
 		// puts the file in the memory
-		readTest(&file, &fileInMemory);
+		filetoMem(&file, &fileInMemory);
 		instructionsLenght = fSize(fileInMemory);
 		instructions = new std::bitset<32>[instructionsLenght];
-		cout << "file lenght: " << instructionsLenght << endl;
+		// puts the instructions of the file in memory and free file in memory
 		InstoMem(&fileInMemory);
-		/*
-		for (int i = 0; i < 12; i++) {
-			// read file and converts hex to dec
-			file >> std::hex >> hexAux;
-			cout << "hex: " << std::hex << hexAux << " binary: ";
-			// converts dec to bin
-			instructions[i] = std::bitset<32>(hexAux);
-			cout << instructions[i] << endl;
-		}*/
 	}
 }
 
+// executes instructions in memory
+void ExeInstructions() {
+	for (int i = 0; i < instructionsLenght; i++) {
+		// return the OPNumber of an instruction
+		auto OP = [instruction = instructions[i]]()->std::bitset<6> {
+			return (instruction.to_ulong() & 0xFC000000) >> 26; }();
+		std::cout << "Instruction: " << instructions[i] << " OP: " << OP << std::endl;
+		switch (OP.to_ulong()) {
+			case (0): 
+				std::cout << "addim" << std::endl;
+				break;
+			case (1):
+				std::cout << "um" << std::endl;
+				break;
+			case (2):
+				std::cout << "dois" << std::endl;
+		}
+	}
+}	
+
+std::string ExeOP(int code, uint32_t p1, uint32_t p2) {
+	std::string out;
+	/*
+	*
+	* Adição (add, addi) - code: 0
+	* Subtração (sub, subi) - code: 1
+	* Multiplicação (mul, muli) - code: 2
+	* Divisão (div, divi) - code: 3
+	* Comparação (cmp, cmpi) - code: 4
+	* Deslocamento (shl, shr) - code: 5
+	* Lógicas (and, andi) - code: 6
+	* Lógicas (not, noti) - code: 7
+	* Lógicas (or, ori) - code: 8
+	* Lógicas (xor, xori) - code: 9
+	*
+	*/
+	switch (code) {
+		case 0:
+			R[0] = p1 + p2;
+			out = "descrição da operação";
+			break;
+		case 1:
+			break;
+		case 2:
+			break;
+		case 3:
+			break;
+		case 4:
+			break;
+		case 5:
+			break;
+		case 6:
+			break;
+		case 7: 
+			break;
+		case 8:
+			break;
+		case 9:
+			break;
+	}
+	return out;
+
+}
+
+// write out file
 void WriteToFile(std::string outFileName) {
 	using namespace std;
 	ofstream file(outFileName.c_str());
