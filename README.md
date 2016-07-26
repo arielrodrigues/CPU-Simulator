@@ -1,4 +1,4 @@
-#COMP0223: A simulator for a simple CPU (Architeture based on risk by Bruno Otavio Piedade Prado [DCOMP-UFS]) in C++
+#A simulator for a simple CPU (Architeture based on risk by Bruno Otavio Piedade Prado [DCOMP-UFS]) in C++
 
 (Sorry, only br portuguese below)
 
