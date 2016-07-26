@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <sstream>
 #include <bitset>
 #include <fstream>
 
@@ -7,11 +8,17 @@
 std::bitset<32>* instructions = NULL;
 int instructionsLenght = 0;
 
+// registers
 uint32_t R[64];
+
+// out file
+std::stringstream ssout;
 
 void ReadFile(std::string);
 void ExeInstructions();
-std::string ExeOP(int, uint32_t, uint32_t);
+std::string OPType_U(std::bitset<32> OP, uint32_t E, uint32_t Rx, uint32_t Ry, uint32_t Rz);
+std::string OPType_F(std::bitset<32> OP, uint32_t IM26, uint32_t Rx, uint32_t Ry);
+std::string OPType_S(std::bitset<32> OP, uint32_t IM26);
 void WriteToFile(std::string);
 
 // main :)
@@ -88,66 +95,90 @@ void ReadFile(std::string fileName) {
 
 // executes instructions in memory
 void ExeInstructions() {
+	ssout << "[START OF SIMULATION]\n";
 	for (int i = 0; i < instructionsLenght; i++) {
 		// return the OPNumber of an instruction
 		auto OP = [instruction = instructions[i]]()->std::bitset<6> {
 			return (instruction.to_ulong() & 0xFC000000) >> 26; }();
 		std::cout << "Instruction: " << instructions[i] << " OP: " << OP << std::endl;
-		switch (OP.to_ulong()) {
-			case (0): 
-				std::cout << "addim" << std::endl;
-				break;
-			case (1):
-				std::cout << "um" << std::endl;
-				break;
-			case (2):
-				std::cout << "dois" << std::endl;
-		}
+		/*if (U) {
+			ssout << "[U] " + OPType_U() + "\n";
+		} else if (F){ 
+			ssout << "[F] " + OPType_F() + "\n";
+		} else if (S) {
+			ssout << "[S] " + OPType_S() + "\n";
+		}*/
 	}
+	ssout << "[END OF SIMULATION]";
 }	
 
-std::string ExeOP(int code, uint32_t p1, uint32_t p2) {
-	std::string out;
-	/*
-	*
-	* Adição (add, addi) - code: 0
-	* Subtração (sub, subi) - code: 1
-	* Multiplicação (mul, muli) - code: 2
-	* Divisão (div, divi) - code: 3
-	* Comparação (cmp, cmpi) - code: 4
-	* Deslocamento (shl, shr) - code: 5
-	* Lógicas (and, andi) - code: 6
-	* Lógicas (not, noti) - code: 7
-	* Lógicas (or, ori) - code: 8
-	* Lógicas (xor, xori) - code: 9
-	*
-	*/
-	switch (code) {
-		case 0:
-			R[0] = p1 + p2;
-			out = "descrição da operação";
+std::string OPType_U(std::bitset<6> OP, uint32_t E, uint32_t Rx, uint32_t Ry, uint32_t Rz) {
+	std::string result = "Resultado da operação";
+
+	switch (OP.to_ulong()) {
+		case (0):
+			std::cout << "addim" << std::endl;
 			break;
-		case 1:
+		case (1):
+			std::cout << "um" << std::endl;
 			break;
-		case 2:
+		case (2):
+			std::cout << "dois" << std::endl;
 			break;
-		case 3:
+		case (3):
+			std::cout << "três" << std::endl;
 			break;
-		case 4:
-			break;
-		case 5:
-			break;
-		case 6:
-			break;
-		case 7: 
-			break;
-		case 8:
-			break;
-		case 9:
+		case (4):
+			std::cout << "quatro" << std::endl;
 			break;
 	}
-	return out;
+	return result;
+}
 
+std::string OPType_F(std::bitset<6> OP, uint32_t IM26, uint32_t Rx, uint32_t Ry) {
+	std::string result = "Resultado da operação";
+
+	switch (OP.to_ulong()) {
+	case (0):
+		std::cout << "addim" << std::endl;
+		break;
+	case (1):
+		std::cout << "um" << std::endl;
+		break;
+	case (2):
+		std::cout << "dois" << std::endl;
+		break;
+	case (3):
+		std::cout << "três" << std::endl;
+		break;
+	case (4):
+		std::cout << "quatro" << std::endl;
+		break;
+	}
+	return result;
+}
+
+std::string OPType_S(std::bitset<6> OP, uint32_t IM26) {
+	std::string result = "Resultado da operação";
+
+	switch (OP.to_ulong()) {
+	case (0):
+		std::cout << "addim" << std::endl;
+		break;
+	case (1):
+		std::cout << "um" << std::endl;
+		break;
+	case (2):
+		std::cout << "dois" << std::endl;
+		break;
+	case (3):
+		std::cout << "três" << std::endl;
+		break;
+	case (4):
+		std::cout << "quatro" << std::endl;
+		break;
+	}
+	return result;
 }
 
 // write out file
@@ -157,11 +188,8 @@ void WriteToFile(std::string outFileName) {
 	if (!file.is_open()) {
 		cout << "Unable to write to file." << endl;
 	} else {
-		file << "Instruções: \n";
-		for (int i = 0; i < instructionsLenght; i++) {
-			file << instructions[i] << "\n";
-		}
-		file << "Eventos: \n";
+		file << ssout.rdbuf();
+		ssout.clear();
 	}
 	file.close();
 }
