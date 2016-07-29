@@ -1,24 +1,26 @@
 #include <iostream>
-#include <string>
-#include <sstream>
-#include <bitset>
 #include <fstream>
+#include <sstream>
+#include <string>
+#include <bitset>
+#include <iomanip> 
 
-// array of instructions: bitset of 32 pos
-std::bitset<32>* instructions = NULL;
-int instructionsLenght = 0;
+// array of memory: bitset of 32 pos
+std::bitset<32>* memory = NULL;
+int memoryLenght = 0;
 
 // registers
-uint32_t R[64];
+uint32_t R[32], ER = 0, PC = 0, FR = 0;
+std::bitset<32> IR;
 
 // out file
 std::stringstream ssout;
 
 void ReadFile(std::string);
-void ExeInstructions();
-std::string OPType_U(std::bitset<32> OP, uint32_t E, uint32_t Rx, uint32_t Ry, uint32_t Rz);
-std::string OPType_F(std::bitset<32> OP, uint32_t IM26, uint32_t Rx, uint32_t Ry);
-std::string OPType_S(std::bitset<32> OP, uint32_t IM26);
+void ULA();
+std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction);
+std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction);
+std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction);
 void WriteToFile(std::string);
 
 // main :)
@@ -26,14 +28,14 @@ int main(int argc, char *argv[]) {
 	using namespace std;
 	string inFileName = "file.txt", outFileName = "out.txt";
 	ReadFile(inFileName.c_str());
-	ExeInstructions();
+	ULA();
 	WriteToFile(outFileName);
 
 	cout << "Press the ENTER key";
 	while (cin.get() != '\n') {}
 
-	delete[] instructions;
-	instructions = NULL;
+	delete[] memory;
+	memory = NULL;
 	return 0;
 }
 
@@ -56,7 +58,7 @@ void filetoMem(std::ifstream* file, std::string* fileInMemory) {
 	file->close();
 }
 
-// put instructions in memory
+// put memory in memory
 void InstoMem(std::string* fileInMemory) {
 	using namespace std;
 	char token = '\n';
@@ -68,14 +70,14 @@ void InstoMem(std::string* fileInMemory) {
 		pos = fileInMemory->find(token);
 		if (pos != string::npos) {
 			hexAux = stoul(fileInMemory->substr(0, pos), NULL, 16);
-			instructions[i++] = std::bitset<32>(hexAux);
+			memory[i++] = std::bitset<32>(hexAux);
 			*fileInMemory = fileInMemory->substr(pos + sizeof(token));
 		}
 	} while (pos != string::npos);
 	fileInMemory = NULL;
 }
 
-// readFile and saves all hexvalues in instructions array
+// readFile and saves all hexvalues in memory array
 void ReadFile(std::string fileName) {
 	using namespace std;
 	ifstream file(fileName.c_str(), ifstream::in);
@@ -86,57 +88,50 @@ void ReadFile(std::string fileName) {
 	else {
 		// puts the file in the memory
 		filetoMem(&file, &fileInMemory);
-		instructionsLenght = fSize(fileInMemory);
-		instructions = new std::bitset<32>[instructionsLenght];
-		// puts the instructions of the file in memory and free file in memory
+		memoryLenght = fSize(fileInMemory);
+		memory = new std::bitset<32>[memoryLenght];
+		// puts the memory of the file in memory and free file in memory
 		InstoMem(&fileInMemory);
 	}
 }
 
-// executes instructions in memory
-void ExeInstructions() {
+// return OPType: U, F or S
+char getOPType(std::bitset<6> OP) {
+	if (OP.to_ulong() < 26) {
+		if (OP.to_ulong() % 2 != 0) return 'F';
+		else return 'U';
+	}
+	else return 'S';
+}
+
+// executes memory in memory
+void ULA() {
 	ssout << "[START OF SIMULATION]\n";
-	for (int i = 0; i < instructionsLenght; i++) {
-		// return the OPNumber of an instruction
-		auto OP = [instruction = instructions[i]]()->std::bitset<6> {
+	for (int i = 0; i < memoryLenght; i++) {
+		IR = memory[i];
+		auto OP = [instruction = IR]()->std::bitset<6> {
 			return (instruction.to_ulong() & 0xFC000000) >> 26; }();
-		std::cout << "Instruction: " << instructions[i] << " OP: " << OP << std::endl;
-		/*if (U) {
-			ssout << "[U] " + OPType_U() + "\n";
-		} else if (F){ 
-			ssout << "[F] " + OPType_F() + "\n";
-		} else if (S) {
-			ssout << "[S] " + OPType_S() + "\n";
-		}*/
+
+			switch (getOPType(OP)) {
+				case ('U'):
+					ssout << OPType_U(OP, IR).rdbuf() << "\n";
+					PC++;
+					break;
+				case ('F'):
+					ssout << OPType_F(OP, IR).rdbuf() << "\n";
+					PC++;
+					break;
+				case ('S'):
+					ssout << OPType_S(OP, IR).rdbuf() << "\n";
+					break;
+			}
 	}
 	ssout << "[END OF SIMULATION]";
-}	
-
-std::string OPType_U(std::bitset<6> OP, uint32_t E, uint32_t Rx, uint32_t Ry, uint32_t Rz) {
-	std::string result = "Resultado da operação";
-
-	switch (OP.to_ulong()) {
-		case (0):
-			std::cout << "addim" << std::endl;
-			break;
-		case (1):
-			std::cout << "um" << std::endl;
-			break;
-		case (2):
-			std::cout << "dois" << std::endl;
-			break;
-		case (3):
-			std::cout << "três" << std::endl;
-			break;
-		case (4):
-			std::cout << "quatro" << std::endl;
-			break;
-	}
-	return result;
 }
 
-std::string OPType_F(std::bitset<6> OP, uint32_t IM26, uint32_t Rx, uint32_t Ry) {
-	std::string result = "Resultado da operação";
+std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
+	std::stringstream result;
+	result << "[U] ";
 
 	switch (OP.to_ulong()) {
 	case (0):
@@ -158,8 +153,9 @@ std::string OPType_F(std::bitset<6> OP, uint32_t IM26, uint32_t Rx, uint32_t Ry)
 	return result;
 }
 
-std::string OPType_S(std::bitset<6> OP, uint32_t IM26) {
-	std::string result = "Resultado da operação";
+std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
+	std::stringstream result;
+	result << "[F] ";
 
 	switch (OP.to_ulong()) {
 	case (0):
@@ -179,6 +175,61 @@ std::string OPType_S(std::bitset<6> OP, uint32_t IM26) {
 		break;
 	}
 	return result;
+}
+
+std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction) {
+	std::bitset<26> IM26 = (instruction.to_ulong() & 0x03FFFFFF);
+	std::bitset<1> EQ = (FR & 0x00000001); std::bitset<1> GT = (FR & 0x00000004) >> 2; 
+	std::bitset<1> LT = (FR & 0x00000002) >> 1;
+	std::stringstream result;
+	using namespace std; 
+	if (OP.to_ulong() < 32) {
+		switch (OP.to_ulong()) {
+			case (26):
+				result << "bun ";
+				break;
+			case (27):
+				if (EQ.test(0)){
+					result << "beq ";
+					break;
+				} else return result;
+			case (28):
+				if (LT.test(0)){
+					result << "blt ";
+					break;
+				} else return result;
+			case (29):
+				if (GT.test(0)){
+					result << "bgt ";
+					break;
+				} else return result;
+			case (30):
+				if (!EQ.test(0)){
+					result << "bne ";
+					break;
+				} else return result;
+			case (31):
+				if (LT.test(0) || EQ.test(0)){
+					result << "ble ";
+					break;
+				} else return result;
+			case (32):
+				if (GT.test(0) || EQ.test(0)){
+					result << "bge ";
+					break;
+				} else return result;
+		}
+		result << hex << setfill('0') << setw(8) << uppercase << IM26.to_ulong() 
+			   << "\n" << "[S] PC = 0x" << hex << setfill('0') << setw(8) << uppercase 
+			   << IM26.to_ulong() << 2;
+		PC = IM26.to_ulong() << 2;
+		return result;
+	} else {
+		if (IM26 == 0) {
+			result << "int 0" << "\n" << "[S] CR = 0x00000000, PC = 0x00000000" << "\n";
+		}
+		return result;
+	}
 }
 
 // write out file
@@ -187,7 +238,8 @@ void WriteToFile(std::string outFileName) {
 	ofstream file(outFileName.c_str());
 	if (!file.is_open()) {
 		cout << "Unable to write to file." << endl;
-	} else {
+	}
+	else {
 		file << ssout.rdbuf();
 		ssout.clear();
 	}
