@@ -104,6 +104,10 @@ char getOPType(std::bitset<6> OP) {
 	else return 'S';
 }
 
+void wReg() {
+	R[0] = 0;
+}
+
 // executes memory in memory
 void ULA() {
 	ssout << "[START OF SIMULATION]\n";
@@ -130,48 +134,69 @@ void ULA() {
 }
 
 std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
+	uint32_t z = (instruction.to_ulong() & 0x00007C00) >> 10,
+		     x = (instruction.to_ulong() & 0x000003E0) >> 5,
+		     y = (instruction.to_ulong() & 0x0000001F);
+	std::bitset<1> OV;
+	std::bitset<3> E;
+	// if OV: FR = 0x00000010;
+	// if ZD: FR = 0x00000008;
+	// if GT: FR = 0x00000004;
+	// if LT: FR = 0x00000002;
+	// if EQ: FR = 0x00000001;
+
 	std::stringstream result;
-	result << "[U] ";
+	using namespace std;
 
 	switch (OP.to_ulong()) {
-	case (0):
-		std::cout << "addim" << std::endl;
-		break;
-	case (1):
-		std::cout << "um" << std::endl;
-		break;
-	case (2):
-		std::cout << "dois" << std::endl;
-		break;
-	case (3):
-		std::cout << "três" << std::endl;
-		break;
-	case (4):
-		std::cout << "quatro" << std::endl;
-		break;
+		case (0):
+			if (x == 0 && y == 0 && z == 0)
+				return result;
+			result << "addm r"<< x << ", r" << y << ", r" << z << "\n";
+			R[x] = R[y] + R[z];
+			result << "[U] FR = " <<FR<<", R"<<x<<" = R"<<y<<" + R"<<z<<" = "<<R[x]<< "\n";
+			break;
+		case (1):
+			std::cout << "um" << std::endl;
+			break;
+		case (2):
+			std::cout << "dois" << std::endl;
+			break;
+		case (3):
+			std::cout << "três" << std::endl;
+			break;
+		case (4):
+			std::cout << "quatro" << std::endl;
+			break;
 	}
 	return result;
 }
 
 std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
+	std::bitset<26> IM26 = (instruction.to_ulong() & 0x03FFFFFF);
+	std::bitset<5> RZ, RX, RY;
+	std::bitset<1> OV;
+	// Rx_Mask =  0x000003E0(d5); Ry_Mask = 0x0000001F(d10); Rz_Mask = 0x00007C00;
+	std::bitset<3> E;
+
 	std::stringstream result;
-	result << "[F] ";
+	using namespace std;
 
 	switch (OP.to_ulong()) {
 	case (0):
-		std::cout << "addim" << std::endl;
+		result << "addm" << "\n";
 		break;
 	case (1):
-		std::cout << "um" << std::endl;
+		cout << "um" << endl;
 		break;
 	case (2):
-		std::cout << "dois" << std::endl;
+		cout << "dois" << endl;
 		break;
 	case (3):
-		std::cout << "três" << std::endl;
+		cout << "três" << endl;
 		break;
 	case (4):
-		std::cout << "quatro" << std::endl;
+		cout << "quatro" << endl;
 		break;
 	}
 	return result;
@@ -179,8 +204,9 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 
 std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction) {
 	std::bitset<26> IM26 = (instruction.to_ulong() & 0x03FFFFFF);
-	std::bitset<1> EQ = (FR & 0x00000001); std::bitset<1> GT = (FR & 0x00000004) >> 2; 
-	std::bitset<1> LT = (FR & 0x00000002) >> 1;
+	std::bitset<1> EQ = (FR & 0x00000001), 
+				   GT = (FR & 0x00000004) >> 2,
+				   LT = (FR & 0x00000002) >> 1;
 	std::stringstream result;
 	using namespace std; 
 	if (OP.to_ulong() < 32) {
