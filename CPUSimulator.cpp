@@ -98,14 +98,14 @@ void ReadFile(std::string fileName) {
 // return OPType: U, F or S
 char getOPType(std::bitset<6> OP) {
 	if (OP.to_ulong() < 26) {
+		// exceções
+		if (OP.to_ulong() == 11) return 'U';
+		if (OP.to_ulong() == 20) return 'F';
+		if (OP.to_ulong() == 22) return 'F';
 		if (OP.to_ulong() % 2 != 0) return 'F';
 		else return 'U';
 	}
 	else return 'S';
-}
-
-void wReg() {
-	R[0] = 0;
 }
 
 // executes memory in memory
@@ -117,17 +117,16 @@ void ULA() {
 			return (instruction.to_ulong() & 0xFC000000) >> 26; }();
 
 			switch (getOPType(OP)) {
-				case ('U'):
-					ssout << OPType_U(OP, IR).rdbuf() << "\n";
-					PC++;
-					break;
-				case ('F'):
-					ssout << OPType_F(OP, IR).rdbuf() << "\n";
-					PC++;
-					break;
-				case ('S'):
-					ssout << OPType_S(OP, IR).rdbuf() << "\n";
-					break;
+			case ('U'):
+				ssout << OPType_U(OP, IR).rdbuf() << "\n";
+				PC++;
+				break;
+			case ('F'):
+				ssout << OPType_F(OP, IR).rdbuf() << "\n";
+				PC++;
+				break;
+			case ('S'):
+				ssout << OPType_S(OP, IR).rdbuf() << "\n";
 			}
 	}
 	ssout << "[END OF SIMULATION]";
@@ -135,122 +134,239 @@ void ULA() {
 
 std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint32_t z = (instruction.to_ulong() & 0x00007C00) >> 10,
-		     x = (instruction.to_ulong() & 0x000003E0) >> 5,
-		     y = (instruction.to_ulong() & 0x0000001F);
-	std::bitset<1> OV;
-	std::bitset<3> E;
-	// if OV: FR = 0x00000010;
-	// if ZD: FR = 0x00000008;
-	// if GT: FR = 0x00000004;
-	// if LT: FR = 0x00000002;
-	// if EQ: FR = 0x00000001;
-
-	std::stringstream result;
-	using namespace std;
-
-	switch (OP.to_ulong()) {
-		case (0):
-			if (x == 0 && y == 0 && z == 0)
-				return result;
-			result << "addm r"<< x << ", r" << y << ", r" << z << "\n";
-			R[x] = R[y] + R[z];
-			result << "[U] FR = " <<FR<<", R"<<x<<" = R"<<y<<" + R"<<z<<" = "<<R[x]<< "\n";
-			break;
-		case (1):
-			std::cout << "um" << std::endl;
-			break;
-		case (2):
-			std::cout << "dois" << std::endl;
-			break;
-		case (3):
-			std::cout << "três" << std::endl;
-			break;
-		case (4):
-			std::cout << "quatro" << std::endl;
-			break;
-	}
-	return result;
-}
-
-std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
-	std::bitset<26> IM26 = (instruction.to_ulong() & 0x03FFFFFF);
-	std::bitset<5> RZ, RX, RY;
-	std::bitset<1> OV;
-	// Rx_Mask =  0x000003E0(d5); Ry_Mask = 0x0000001F(d10); Rz_Mask = 0x00007C00;
-	std::bitset<3> E;
-
+		x = (instruction.to_ulong() & 0x000003E0) >> 5,
+		y = (instruction.to_ulong() & 0x0000001F);
+	uint64_t temp = 0;
 	std::stringstream result;
 	using namespace std;
 
 	switch (OP.to_ulong()) {
 	case (0):
-		result << "addm" << "\n";
-		break;
-	case (1):
-		cout << "um" << endl;
+		if (x == 0 && y == 0 && z == 0)
+			return result;
+		result << "add r" << z << ", r" << x << ", r" << y << "\n";
+		temp = R[x] + R[y];
+		ER = temp & 0x1111111100000000;
+		R[z] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[U] FR = " << FR << ", R" << z << " = R" << x << " + R" << y << " = " << R[z] << "\n";
 		break;
 	case (2):
-		cout << "dois" << endl;
-		break;
-	case (3):
-		cout << "três" << endl;
+		result << "sub r" << z << ", r" << x << ", r" << y << "\n";
+		temp = R[x] - R[y];
+		ER = temp & 0x1111111100000000;
+		R[z] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[U] FR = " << FR << ", R" << z << " = R" << x << " - R" << y << " = " << R[z] << "\n";
 		break;
 	case (4):
-		cout << "quatro" << endl;
+		result << "mul r" << z << ", r" << x << ", r" << y << "\n";
+		temp = R[x] * R[y];
+		ER = temp & 0x1111111100000000;
+		R[z] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[U] FR = " << FR << ", R" << z << " = R" << x << " * R" << y << " = " << R[z] << "\n";
 		break;
+	case (6):
+		if (R[y] == 0) { FR = 0x00000008; return result; }
+		result << "div r" << z << ", r" << x << ", r" << y << "\n";
+		R[z] = R[x] / R[y];
+		ER = R[x] % R[y];
+		result << "[U] FR = " << FR << ", R" << z << " = R" << x << " / R" << y << " = " << R[z] << "\n";
+		break;
+	case (8):
+		result << "cmp r" << x << ", r" << y << "\n";
+		if (R[x] == R[y]) FR = 0x00000001;
+		else if (R[x] < R[y]) FR = 0x00000002;
+		else FR = 0x00000004;
+		result << "[U] FR = " << FR << "\n";
+		break;
+	case (10):
+		result << "shl r" << z << ", r" << x << (y + 1) << "\n";
+		temp = R[x] << (y + 1);
+		ER = temp & 0x1111111100000000;
+		R[z] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[U] ER = " << ER << ", R" << z << " = R" << x << " << " << (y + 1)
+			<< " = " << R[z] << "\n";
+		break;
+	case (11):
+		result << "shr r" << z << ", r" << x << (y + 1) << "\n";
+		temp = R[x] >> (y + 1);
+		ER = temp & 0x1111111100000000;
+		R[z] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[U] ER = " << ER << ", R" << z << " = R" << x << " >> " << (y + 1)
+			<< " = " << R[z] << "\n";
+		break;
+	case (12):
+		result << "and r" << z << ", r" << x << ", r" << y << "\n";
+		R[z] = R[x] & R[y];
+		result << "[U] Rz = " << R[z] << "\n";
+		break;
+	case (14):
+		result << "not r" << x << ", r" << y << "\n";
+		R[x] = !R[y];
+		result << "[U] Rx = " << R[x] << "\n";
+		break;
+	case (16):
+		result << "or r" << z << ", r" << x << ", r" << y << "\n";
+		R[z] = R[x] | R[y];
+		result << "[U] Rz = " << R[z] << "\n";
+		break;
+	case (18):
+		result << "xor r" << z << ", r" << x << ", r" << y << "\n";
+		R[z] = R[x] ^ R[y];
+		result << "[U] Rz = " << R[z] << "\n";
+	}
+	return result;
+}
+
+std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
+	uint32_t IM16 = (instruction.to_ulong() & 0x03FFFC00) >> 10,
+		x = (instruction.to_ulong() & 0x000003E0) >> 5,
+		y = (instruction.to_ulong() & 0x0000001F);
+	uint64_t temp = 0;
+	std::stringstream result;
+	using namespace std;
+
+	switch (OP.to_ulong()) {
+	case (1):
+		result << "addi r" << x << ", r" << y << ", " << IM16 << "\n";
+		temp = R[y] + IM16;
+		ER = temp & 0x1111111100000000;
+		R[x] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[F] FR = " << FR << ", R" << x << " = R" << y << " + " << IM16 << " = " << R[x] << "\n";
+		break;
+	case (3):
+		result << "subi r" << x << ", r" << y << ", " << IM16 << "\n";
+		temp = R[y] - IM16;
+		ER = temp & 0x1111111100000000;
+		R[x] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[F] FR = " << FR << ", R" << x << " = R" << y << " - " << IM16 << " = " << R[x] << "\n";
+		break;
+	case (5):
+		result << "muli r" << x << ", r" << y << ", " << IM16 << "\n";
+		temp = R[y] * IM16;
+		ER = temp & 0x1111111100000000;
+		R[x] = temp & 0x0000000011111111;
+		if (ER != 0) FR = 0x00000004; else FR = 0x00000000;// CONFERIR
+		result << "[F] FR = " << FR << ", R" << x << " = R" << y << " * " << IM16 << " = " << R[x] << "\n";
+		break;
+	case (7):
+		if (IM16 == 0) { FR = 0x00000008; return result; }
+		result << "divi r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = R[y] / IM16;
+		ER = R[y] % IM16;
+		result << "[F] FR = " << FR << ", R" << x << " = R" << y << " / " << IM16 << "\n";
+		break;
+	case (9):
+		result << "cmpi r" << x << ", " << IM16 << "\n";
+		if (R[x] == IM16) FR = 0x00000001;
+		else if (R[x] < IM16) FR = 0x00000002;
+		else FR = 0x00000004;
+		result << "[F] FR = " << FR << "\n";
+		break;
+	case (13):
+		result << "andi r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = R[y] & IM16;
+		result << "[F] Rx = " << R[x] << "\n";
+		break;
+	case (15):
+		result << "noti r" << x << ", " << IM16 << "\n";
+		R[x] = !IM16; //TESTAR COM ~
+		result << "[F] Rx = " << R[x] << "\n";
+		break;
+	case (17):
+		result << "ori r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = R[y] | IM16;
+		result << "[F] Rx = " << R[x] << "\n";
+		break;
+	case (19):
+		result << "xori r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = R[y] ^ IM16;
+		result << "[U] Rx = " << R[x] << "\n";
+		break;
+	case (20): //NÃO IMPLEMENTADO
+		result << "ldw r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = memory[(R[y] + IM16) << 2].to_ulong();
+		result << "[U] Rx = " << R[x] << "\n";
+		break;
+	case (21): //NÃO IMPLEMENTADO
+		result << "ldb r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = memory[(R[y] + IM16)].to_ulong();
+		result << "[U] Rx = " << R[x] << "\n";
+		break;
+	case (22): //NÃO IMPLEMENTADO
+		result << "sdw r" << x << ", r" << y << ", " << IM16 << "\n";
+		memory[(R[y] + IM16) << 2] = R[y];
+		result << "[U] memory[" << ((R[y] + IM16) << 2) << "] = " << R[y] << "\n";
+		break;
+	case (23): //NÃO IMPLEMENTADO
+		result << "sdb r" << x << ", r" << y << ", " << IM16 << "\n";
+		R[x] = memory[(R[y] + IM16)].to_ulong();
+		result << "[U] Rx = " << R[x] << "\n";
 	}
 	return result;
 }
 
 std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction) {
 	std::bitset<26> IM26 = (instruction.to_ulong() & 0x03FFFFFF);
-	std::bitset<1> EQ = (FR & 0x00000001), 
-				   GT = (FR & 0x00000004) >> 2,
-				   LT = (FR & 0x00000002) >> 1;
+	std::bitset<1> EQ = (FR & 0x00000001),
+		GT = (FR & 0x00000004) >> 2,
+		LT = (FR & 0x00000002) >> 1;
 	std::stringstream result;
-	using namespace std; 
+	using namespace std;
 	if (OP.to_ulong() < 32) {
 		switch (OP.to_ulong()) {
-			case (26):
-				result << "bun ";
+		case (26):
+			result << "bun ";
+			break;
+		case (27):
+			if (EQ.test(0)) {
+				result << "beq ";
 				break;
-			case (27):
-				if (EQ.test(0)){
-					result << "beq ";
-					break;
-				} else return result;
-			case (28):
-				if (LT.test(0)){
-					result << "blt ";
-					break;
-				} else return result;
-			case (29):
-				if (GT.test(0)){
-					result << "bgt ";
-					break;
-				} else return result;
-			case (30):
-				if (!EQ.test(0)){
-					result << "bne ";
-					break;
-				} else return result;
-			case (31):
-				if (LT.test(0) || EQ.test(0)){
-					result << "ble ";
-					break;
-				} else return result;
-			case (32):
-				if (GT.test(0) || EQ.test(0)){
-					result << "bge ";
-					break;
-				} else return result;
+			}
+			else return result;
+		case (28):
+			if (LT.test(0)) {
+				result << "blt ";
+				break;
+			}
+			else return result;
+		case (29):
+			if (GT.test(0)) {
+				result << "bgt ";
+				break;
+			}
+			else return result;
+		case (30):
+			if (!EQ.test(0)) {
+				result << "bne ";
+				break;
+			}
+			else return result;
+		case (31):
+			if (LT.test(0) || EQ.test(0)) {
+				result << "ble ";
+				break;
+			}
+			else return result;
+		case (32):
+			if (GT.test(0) || EQ.test(0)) {
+				result << "bge ";
+			}
+			else return result;
 		}
-		result << hex << setfill('0') << setw(8) << uppercase << IM26.to_ulong() 
-			   << "\n" << "[S] PC = 0x" << hex << setfill('0') << setw(8) << uppercase 
-			   << IM26.to_ulong() << 2;
+		result << hex << setfill('0') << setw(8) << uppercase << IM26.to_ulong()
+			<< "\n" << "[S] PC = 0x" << hex << setfill('0') << setw(8) << uppercase
+			<< IM26.to_ulong() << 2;
 		PC = IM26.to_ulong() << 2;
 		return result;
-	} else {
+	}
+	else {
 		if (IM26 == 0) {
 			result << "int 0" << "\n" << "[S] CR = 0x00000000, PC = 0x00000000" << "\n";
 		}
