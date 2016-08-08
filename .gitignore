@@ -86,6 +86,7 @@ $RECYCLE.BIN/
 *.aps
 resource.h
 Debug/*
+x64/*
 
 # Test files
 file.txt
