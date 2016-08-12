@@ -147,7 +147,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint32_t z = (instruction.to_ulong() & 0x7C00) >> 10,
 		x = (instruction.to_ulong() & 0x3E0) >> 5,
 		y = (instruction.to_ulong() & 0x1F);
-	uint64_t temp = 0;
+	uint64_t temp =  (uint64_t) 0;
 	std::stringstream result;
 	using namespace std;
 
@@ -156,7 +156,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		if (x == 0 && y == 0 && z == 0)
 			return result;
 		result << "add r" << z << ", r" << x << ", r" << y << "\n";
-		temp = R[x] + R[y];
+		temp =  (uint64_t) R[x] + R[y];
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
@@ -165,7 +165,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (2):
 		result << "sub r" << z << ", r" << x << ", r" << y << "\n";
-		temp = R[x] - R[y];
+		temp =  (uint64_t) R[x] - R[y];
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
@@ -175,7 +175,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (4):
 		result << "mul r" << z << ", r" << x << ", r" << y << "\n";
-		temp = R[x] * R[y];
+		temp =  (uint64_t) R[x] * R[y];
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
@@ -201,7 +201,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (10):
 		result << "shl r" << z << ", r" << x << (y + 1) << "\n";
-		temp = R[x] << (y + 1);
+		temp =  (uint64_t) R[x] << (y + 1);
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x4; else FR = FR & 0xFFFFFFFB; // EM TESTES
@@ -210,7 +210,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (11):
 		result << "shr r" << z << ", r" << x << (y + 1) << "\n";
-		temp = R[x] >> (y + 1);
+		temp =  (uint64_t) R[x] >> (y + 1);
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x4; else FR = FR & 0xFFFFFFFB; // EM TESTES
@@ -245,14 +245,14 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint32_t IM16 = (instruction.to_ulong() & 0x3FFFC00) >> 10,
 		x = (instruction.to_ulong() & 0x3E0) >> 5,
 		y = (instruction.to_ulong() & 0x1F);
-	uint64_t temp = 0, div = 0, pos = 0;
+	uint64_t temp = (uint64_t) 0, div = 0, pos = 0;
 	std::stringstream result;
 	using namespace std;
 
 	switch (OP.to_ulong()) {
 	case (1):
 		result << "addi r" << x << ", r" << y << ", " << IM16 << "\n";
-		temp = R[y] + IM16;
+		temp = (uint64_t) R[y] + IM16;
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = (temp & 0xFFFFFFFF);
 		if (ER != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
@@ -262,7 +262,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (3):
 		result << "subi r" << x << ", r" << y << ", " << IM16 << "\n";
-		temp = R[y] - IM16;
+		temp = (uint64_t) R[y] - IM16;
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
@@ -270,7 +270,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (5):
 		result << "muli r" << x << ", r" << y << ", " << IM16 << "\n";
-		temp = R[y] * IM16;
+		temp = (uint64_t) R[y] * IM16;
 		ER = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (ER != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
