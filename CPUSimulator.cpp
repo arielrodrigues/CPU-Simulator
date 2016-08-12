@@ -33,7 +33,7 @@ int main(int argc, char *argv[]) {
 	using namespace std;
 	string inFileName = "file.txt", outFileName = "out.txt";//argv[1], outFileName = argv[2];//
 	ReadFile(inFileName.c_str());
-	if (memory != NULL) ULA();
+	ULA();
 	WriteToFile(outFileName);
 
 	cout << "Press the ENTER key";
@@ -47,7 +47,7 @@ int main(int argc, char *argv[]) {
 // counts the number of lines of the file
 int fSize(std::string fileInMemory) {
 	int fLenght = 0;
-	fLenght = 30;//std::count(fileInMemory.begin(), fileInMemory.end(), '\n');
+	fLenght = std::count(fileInMemory.begin(), fileInMemory.end(), '\n');
 	return fLenght;
 }
 
@@ -89,6 +89,7 @@ void ReadFile(std::string fileName) {
 	std::string fileInMemory;
 	if (!file.is_open()) {
 		cout << "Unable to open file." << endl;
+		exit(EXIT_FAILURE);
 	} else {
 		// puts the file in the memory
 		filetoMem(&file, &fileInMemory);
@@ -135,9 +136,7 @@ void ULA() {
 				break;
 			case ('S'):
 				result = OPType_S(OP, IR, &okay);
-				if (result.str().length() > 0)
-					ssout << result.str() << "\n";
-				else PC++; // LEMBRAR DE CORRIGIR
+				ssout << result.str() << "\n";
 			}
 	}
 	ssout << "[END OF SIMULATION]";
