@@ -44,13 +44,6 @@ int main(int argc, char *argv[]) {
 	return 0;
 }
 
-// counts the number of lines of the file
-int fSize(std::string fileInMemory) {
-	int fLenght = 0;
-	fLenght = std::count(fileInMemory.begin(), fileInMemory.end(), '\n');
-	return fLenght;
-}
-
 // put the file in memory
 void filetoMem(std::ifstream* file, std::string* fileInMemory) {
 	file->seekg(0, std::ios::end);
@@ -94,7 +87,9 @@ void ReadFile(std::string fileName) {
 	else {
 		// puts the file in the memory
 		filetoMem(&file, &fileInMemory);
-		memoryLenght = fSize(fileInMemory);
+		memoryLenght = [file = fileInMemory]()->uint32_t {	int i = 0;
+			for (; i < file.length(); i++) if (file[i] == '\n') i++;
+			return i; }();
 		memory = new std::bitset<32>[memoryLenght];
 		InstoMem(&fileInMemory);
 	}
@@ -145,8 +140,8 @@ void ULA() {
 
 // all operations of type U
 std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
-	uint32_t z = (instruction.to_ulong() & 0x7C00) >> 10, x = (instruction.to_ulong() & 0x3E0) >> 5,
-		y = (instruction.to_ulong() & 0x1F), e = (instruction.to_ulong() & 70000) >> 16;
+	uint64_t z = (uint64_t)(instruction.to_ulong() & 0x7C00) >> 10, x = (uint64_t)(instruction.to_ulong() & 0x3E0) >> 5,
+		y = (uint64_t)(instruction.to_ulong() & 0x1F), e = (uint64_t)(instruction.to_ulong() & 70000) >> 16;
 	if (e != 0) { x = x | ((e & 0x2) << 4); y = y | ((e & 0x1) << 5); z = z | (e & 0x4) << 3; }
 	uint64_t temp = (uint64_t)0;
 	std::stringstream result;
@@ -162,9 +157,10 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		if (R[34] != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
 		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << FR;
 		/*if (z < 32) result << ", R" << z; else if (z == 32) result << ", pc"; 
-		else if (z == 33) result << ", ir"; else if (z == 34) result << ", er"; else if (z == 35) result << ", fr";*/
-		result << ", R" << z
-			<< " = R" << x << " + R" << y << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		else if (z == 33) result << ", ir"; else if (z == 34) result << ", er"; 
+		else if (z == 35) result << ", fr";*/
+		result << ", R" << dec << z << " = R" << dec << x << " + R" << dec << y << " = 0x" << hex
+			<< setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (2):
 		result << "sub r" << z << ", r" << x << ", r" << y << "\n";
@@ -173,7 +169,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
 		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << FR << ", R[34]" << hex << setfill('0')
-			<< uppercase << setw(8) << R[34] << ", R" << z << " = R" << x << " - R" << y << " = 0x" << hex << setfill('0')
+			<< uppercase << setw(8) << R[34] << ", R" << dec <<z << " = R" << dec <<x << " - R" << dec <<y << " = 0x" << hex << setfill('0')
 			<< uppercase << setw(8) << R[z];
 		break;
 	case (4):
@@ -183,7 +179,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
 		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << FR << ", R[34] = 0x" << hex
-			<< setfill('0') << uppercase << setw(8) << R[34] << ", R" << z << " = R" << x << " * R" << y << " = 0x"
+			<< setfill('0') << uppercase << setw(8) << R[34] << ", R" << dec <<z << " = R" << dec <<x << " * R" << dec <<y << " = 0x"
 			<< hex << setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (6):
@@ -191,8 +187,8 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		result << "div r" << z << ", r" << x << ", r" << y << "\n";
 		R[z] = R[x] / R[y];
 		R[34] = R[x] % R[y];
-		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << FR << ", R" << z
-			<< " = R" << x << " / R" << y << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << FR << ", R" << dec <<z
+			<< " = R" << dec <<x << " / R" << dec <<y << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (8):
 		result << "cmp r" << x << ", r" << y << "\n";
@@ -202,54 +198,59 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		result << "[U] FR = 0x" << hex <<
 			setfill('0') << setw(8) << uppercase << FR;
 		break;
-	case (10):
+	case (10): 
 		result << "shl r" << z << ", r" << x << ", " << y << "\n";
-		temp = (uint64_t)(R[34] | R[x]) << (y + 1); //R[x] << (y + 1);
+		temp = (uint64_t)R[x] << (uint64_t)(y + 1); //R[x] << (y + 1);
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) FR = FR | 0x4; else FR = FR & 0xFFFFFFFB; // EM TESTES
-		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", R" << z
-			<< " = R" << x << " << " << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", R" << dec <<z
+			<< " = R" << dec <<x << " << " << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (11):
 		result << "shr r" << z << ", r" << x << ", " << y << "\n";
-		temp = (uint64_t)(R[34] | R[x]) >> (y + 1); //R[x] >> (y + 1);
+		temp = (uint64_t)((uint64_t)R[34]<<32 |(0xFFFFFFFF & (uint64_t)R[x]));
+		temp = (temp >> (y + 1));
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) FR = FR | 0x4; else FR = FR & 0xFFFFFFFB; // EM TESTES
-		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", R" << z
-			<< " = R" << x << " >> " << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];;
+		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", R" << dec <<z
+			<< " = R" << dec <<x << " >> " << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];;
 		break;
 	case (12):
 		result << "and r" << z << ", r" << x << ", r" << y << "\n";
 		R[z] = R[x] & R[y];
-		result << "[U] Rz = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] R"<< dec << z << " = R" << x << " & R" << y << " = 0x" << hex <<
+			setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (14):
 		result << "not r" << x << ", r" << y << "\n";
 		R[x] = !R[y];
-		result << "[U] Rx = 0x" << hex << setfill('0') << uppercase << setw(8) << R[x];
+		result << "[U] R" << dec << x << " = ~R" << y << " = 0x" << hex << setfill('0') << 
+			uppercase << setw(8) << R[x];
 		break;
 	case (16):
 		result << "or r" << z << ", r" << x << ", r" << y << "\n";
 		R[z] = R[x] | R[y];
-		result << "[U] Rz = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] R" << dec << z << " = R" << x << " | R" << y << " = 0x" << hex <<
+			setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (18):
 		result << "xor r" << z << ", r" << x << ", r" << y << "\n";
 		R[z] = R[x] ^ R[y];
-		result << "[U] Rz = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] R" << dec << z << " = R" << x << " ^ R" << y << " = 0x" << hex <<
+			setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (24):
 		result << "push r" << x << ", r" << y << "\n";
 		memory[R[x]--] = R[y];
-		result << "[U] MEM[R" << x << "--] = R" << y << " = " << hex << setfill('0') << 
+		result << "[U] MEM[R" << dec <<x << "--] = R" << dec <<y << " = " << hex << setfill('0') << 
 			uppercase << setw(8) << memory[R[x]+1];
 		break;
 	case (25):		
 		result << "pop r" << x << ", r" << y << "\n";
 		memory[++R[x]] = R[y];
-		result << "[U] R" << x<<"= MEM[++R" << y << "] = " << hex << setfill('0') << uppercase 
+		result << "[U] R" << dec <<x<<"= MEM[++R" << dec <<y << "] = " << hex << setfill('0') << uppercase 
 			<< setw(8) << memory[R[x] + 1];
 		break;
 	}
@@ -272,9 +273,9 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = (temp & 0xFFFFFFFF);
 		if (R[34] != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
-		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << FR << ", R" << x << " = R"
-			<< y << " + 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex
-			<< setfill('0') << setw(8) << uppercase << R[x];
+		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << FR << ", R" << dec << x 
+			<< " = R"<< y << " + 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" 
+			<< setw(8) << uppercase << R[x];
 		break;
 	case (3):
 		result << "subi r" << x << ", r" << y << ", " << IM16 << "\n";
@@ -282,7 +283,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
-		result << "[F] FR = " << FR << ", R" << x << " = R" << y << " - " << IM16 << " = " << R[x];
+		result << "[F] FR = " << FR << ", R" << dec << x << " = R" << dec << y << " - " << IM16 << " = " << R[x];
 		break;
 	case (5):
 		result << "muli r" << x << ", r" << y << ", " << IM16 << "\n";
@@ -291,7 +292,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) FR = FR | 0x10; else FR = FR & 0xFFFFFFEF;
 		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << FR << ", R[34] = 0x" <<
-			hex << setfill('0') << setw(8) << uppercase << R[34] << ", R" << x << " = R" << y << " * 0x" <<
+			hex << setfill('0') << setw(8) << uppercase << R[34] << ", R" << dec << x << " = R" << dec << y << " * 0x" <<
 			hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex << setfill('0') << setw(8)
 			<< uppercase << R[x];
 		break;
@@ -300,9 +301,9 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		if (IM16 != 0) { FR = FR & 0x7; R[x] = R[y] / IM16; R[34] = R[y] % IM16; }
 		else { FR = FR | 0x8; R[34] = 0; }
 		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << FR << ", R[34] = 0x" << hex
-			<< setfill('0') << setw(8) << uppercase << R[34] << ", R" << x << " = R" << y << " / 0x" << hex <<
-			setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex << setfill('0') << setw(8) << uppercase
-			<< R[x];
+			<< setfill('0') << setw(8) << uppercase << R[34] << ", R" << dec << x << " = R" << dec << y 
+			<< " / 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex << 
+			setfill('0') << setw(8) << uppercase << R[x];
 		break;
 	case (9):
 		result << "cmpi r" << x << ", " << IM16 << "\n";
@@ -315,23 +316,27 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 	case (13):
 		result << "andi r" << x << ", r" << y << ", " << IM16 << "\n";
 		R[x] = R[y] & IM16;
-		result << "[F] Rx = " << R[x] << "\n";
+		result << "[F] R" << dec << x << " = R" << y << " & 0x" << hex << setfill('0') << uppercase
+			<< setw(4) << IM16 << " = 0x" << setw(8) << R[x];
 		break;
 	case (15):
-		result << "noti r" << x << ", " << IM16;
+		result << "noti r" << x << ", " << IM16 << "\n";
 		R[x] = !IM16;
-		result << "[F] Rx = " << R[x] << "\n";
+		result << "[F] R" << dec << x << " = ~0x" << hex << setfill('0') << uppercase << setw(4) << 
+			IM16 << " = 0x" << setw(4) << R[x];
 		break;
 	case (17):
 		result << "ori r" << x << ", r" << y << ", " << IM16 << "\n";
 		R[x] = R[y] | IM16;
-		result << "[F] Rx = " << R[x];
+		result << "[F] R" << dec << x << " = R" << y << " | 0x" << hex << setfill('0') << uppercase
+			<< setw(4) << IM16 << " = 0x" << setw(8) << R[x];
 		break;
 	case (19):
-		result << "xori r" << x << ", r" << y << ", " << hex <<
-			setfill('0') << setw(8) << uppercase << IM16 << "\n";
+		result << "xori r" << x << ", r" << y << ", 0x" << hex << setfill('0') << setw(4) << uppercase 
+			<< IM16 << "\n";
 		R[x] = R[y] ^ IM16;
-		result << "[F] Rx = " << R[x];
+		result << "[F] R" << dec << x << " = R" << y << " ^ 0x" << hex << setfill('0') << uppercase
+			<< setw(4) << IM16 << " = 0x" << setw(8) << R[x];
 		break;
 	case (20):
 		result << "ldw r" << x << ", r" << y << ", 0x" << hex <<
@@ -342,15 +347,28 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 			setfill('0') << setw(8) << uppercase << R[x];
 		break;
 	case (21): //EM TESTES
-		result << "ldb r" << x << ", 0x" << hex << setfill('0') << setw(4) << uppercase
-			<< IM16 << ", r" << y << "\n";
-		div = (R[y] + IM16) % 32; pos = (R[y] + IM16) * 10 / 32 - div;
-		//R[x] = memory[div][pos];
-		result << "[F] Rx = 0x" << hex << setfill('0') << setw(8) << uppercase << R[x];
+		result << "ldb r" << x <<  ", r" << dec << y << ", 0x" << hex << setfill('0') 
+			<< setw(4) << uppercase	<< IM16 << "\n";
+		R[x] = memory[(R[y] + IM16)/4].to_ulong();
+		switch ((R[y] + IM16) % 4) {
+			case 3:
+				R[x] = (R[x] & 0x000000FF);
+				break;
+			case 2:
+				R[x] = (R[x] & 0x0000FF00) >> 8;
+				break;
+			case 1:
+				R[x] = (R[x] & 0x00FF0000) >> 16;
+				break;
+			default:
+				R[x] = (R[x] & 0xFF000000) >> 24;
+		}
+		result << "[F] R" << dec << x << " = MEM[R" << dec << y <<" + 0x" << hex << setfill('0') << 
+			setw(4)	<< uppercase << IM16 << "] = 0x" << setw(2) << R[x];
 		break;
 	case (22):
 		result << "stw r" << x << ", 0x" << hex <<
-			setfill('0') << setw(4) << uppercase << IM16 << ", r" << y << "\n";
+			setfill('0') << setw(4) << uppercase << IM16 << ", r" << dec << y << "\n";
 		memory[(R[x] + IM16)] = R[y];
 		result << "[F] MEM[(R" << dec << x << " + 0x" << hex << setfill('0')
 			<< setw(4) << uppercase << IM16 << ") << 2]" << " = R" << dec << y << " = 0x" <<
@@ -358,23 +376,42 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (23): //EM TESTES
 		result << "stb r" << x <<  ", 0x" << hex << setfill('0') << setw(4) << uppercase
-			<< IM16 << ", r" << y << "\n";
-		div = (R[x] + IM16) % 32; pos = (R[x] + IM16) * 10 / 32 - div;
-		//memory[div][pos] = R[y];
-		result << "[F] Rx = 0x" << hex << setfill('0') << setw(8) << uppercase << R[y];
+			<< IM16 << ", r" << dec << y << "\n";
+		switch ((R[x] + IM16) % 4) {
+			case 3:
+				memory[(R[x] + IM16)/4] = (memory[(R[x] + IM16)/4].to_ulong() & 0xFFFFFF00) | R[y];
+				temp = memory[(R[x] + IM16)/4].to_ulong() & 0x000000FF;
+				break;
+			case 2:
+				memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16)/4].to_ulong() & 0xFFFF00FF) | (R[y] << 8);
+				temp = (memory[(R[x] + IM16)/4].to_ulong() & 0x0000FF00) >> 8;
+				break;
+			case 1:
+				memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16)/4].to_ulong() & 0xFF00FFFF) | (R[y] << 16);
+				temp = (memory[(R[x] + IM16)/4].to_ulong() & 0x00FF0000) >> 16;
+				break;
+			default:
+				memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16) / 4].to_ulong() & 0x00FFFFFF) | (R[y] << 24);
+				temp = (memory[(R[x] + IM16)/4].to_ulong() & 0xFF000000) >> 24;
+		}
+		result << "[F] MEM[R" << dec << x << " + 0x" << hex << setfill('0') << setw(4) << uppercase 
+			<< IM16 << "] = " << "R" << dec << y << " = 0x" << hex << setw(2) << temp;
 		break;
-	case (37): //EM TESTES
+	case (37): //AINDA ESTÁ AVANÇANDO PC +1 :/
 		result << "call r" << x << ", r" << y << ", 0x" << hex << setfill('0') << setw(4) << uppercase
 			<< IM16 << "\n";
-		R[x] = R[32]; R[32] = (R[y] + IM16);
+		R[x] = ++R[32]; 
+		R[32] = IM16;
 		result << "[F] R" << dec << x << " = (PC + 4) >> 2 = 0x" << hex << setfill('0') << setw(8)
-			<< uppercase << R[x] << ", PC = (R" << y <<	" + 0x0004) << 2 = 0x" << PC;
+			<< uppercase << R[x] << ", PC = (R" << dec << y <<	" + 0x" << hex << setfill('0') << setw(4)
+			<< uppercase << IM16 << ") << 2 = 0x" << hex << setfill('0') << setw(8) << uppercase 
+			<< (R[32] << 2);
 		break;
-	case (38): //EM TESTES
+	case (38):
 		result << "ret r" << x << "\n";
 		R[32] = R[x];
 		result << "[F] PC = R" << dec << x << " << 2 = 0x" << hex << setfill('0') << setw(8)
-			<< uppercase << PC;
+			<< uppercase << (R[32]-- << 2);
 	}
 	return result;
 }
@@ -424,7 +461,9 @@ std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction, bool 
 		if (GT[0] || EQ[0]) sucess = true;
 	}
 
-	if (sucess) R[32] = IM26; else R[32]++;
+	if (sucess) 
+		R[32] = IM26; 
+	else R[32]++;
 	result << "0x" << hex << setfill('0') << setw(8) << uppercase << IM26 << "\n"
 		<< "[S] PC = 0x" << hex << setfill('0') << setw(8) << uppercase << (R[32] << 2);
 
