@@ -1,0 +1,258 @@
+[START OF SIMULATION]
+bun 0x0000007B
+[S] PC = 0x000001EC
+addi r1, r0, 131
+[F] FR = 0x00000000, R1 = R0 + 0x0083 = 0x00000083
+call r31, r0, 0x0004
+[F] R31 = (PC + 4) >> 2 = 0x0000007D, PC = (R0 + 0x0004) << 2 = 0x00000010
+ldw r2, r1, 0x0000
+[F] R2 = MEM[(R1 + 0x0000) << 2] = 0xFF0120EF
+ldw r3, r1, 0x0001
+[F] R3 = MEM[(R1 + 0x0001) << 2] = 0x0000AAAA
+ldw r4, r1, 0x0002
+[F] R4 = MEM[(R1 + 0x0002) << 2] = 0xBBBB0000
+ldw r5, r1, 0x0003
+[F] R5 = MEM[(R1 + 0x0003) << 2] = 0x5555AAAA
+ldw r6, r1, 0x0004
+[F] R6 = MEM[(R1 + 0x0004) << 2] = 0xAAAA5555
+ldw r7, r1, 0x0005
+[F] R7 = MEM[(R1 + 0x0005) << 2] = 0x12345678
+ldw r8, r1, 0x0006
+[F] R8 = MEM[(R1 + 0x0006) << 2] = 0x9ABCDEF0
+ldw r9, r1, 0x0007
+[F] R9 = MEM[(R1 + 0x0007) << 2] = 0x00000001
+ldw r10, r1, 0x0008
+[F] R10 = MEM[(R1 + 0x0008) << 2] = 0x10000000
+ldw r11, r1, 0x0009
+[F] R11 = MEM[(R1 + 0x0009) << 2] = 0x10101010
+ldw r12, r1, 0x000A
+[F] R12 = MEM[(R1 + 0x000A) << 2] = 0x01010101
+ldw r13, r1, 0x000B
+[F] R13 = MEM[(R1 + 0x000B) << 2] = 0xABCDEF00
+ldw r14, r1, 0x000C
+[F] R14 = MEM[(R1 + 0x000C) << 2] = 0x00ABCDEF
+ldw r15, r1, 0x000D
+[F] R15 = MEM[(R1 + 0x000D) << 2] = 0x00005555
+ldw r16, r1, 0x000E
+[F] R16 = MEM[(R1 + 0x000E) << 2] = 0x98765432
+ldw r17, r1, 0x000F
+[F] R17 = MEM[(R1 + 0x000F) << 2] = 0x00001234
+ldw r18, r1, 0x0010
+[F] R18 = MEM[(R1 + 0x0010) << 2] = 0x12340000
+ldw r19, r1, 0x0011
+[F] R19 = MEM[(R1 + 0x0011) << 2] = 0x11111111
+ldw r20, r1, 0x0012
+[F] R20 = MEM[(R1 + 0x0012) << 2] = 0x97234254
+ldw r21, r1, 0x0013
+[F] R21 = MEM[(R1 + 0x0013) << 2] = 0xABDF39AE
+ldw r22, r1, 0x0014
+[F] R22 = MEM[(R1 + 0x0014) << 2] = 0x82BC98AF
+ldw r23, r1, 0x0015
+[F] R23 = MEM[(R1 + 0x0015) << 2] = 0x00000003
+ldw r24, r1, 0x0016
+[F] R24 = MEM[(R1 + 0x0016) << 2] = 0x00000033
+ldw r25, r1, 0x0017
+[F] R25 = MEM[(R1 + 0x0017) << 2] = 0x24242424
+ldw r26, r1, 0x0018
+[F] R26 = MEM[(R1 + 0x0018) << 2] = 0x42424242
+ldw r27, r1, 0x0019
+[F] R27 = MEM[(R1 + 0x0019) << 2] = 0x88888888
+ldw r28, r1, 0x001A
+[F] R28 = MEM[(R1 + 0x001A) << 2] = 0xAABBCCDD
+add r29, r1, r0
+[U] FR = 0x00000000, R29 = R1 + R0 = 0x00000083
+shl r29, r29, 1
+[U] ER = 0x00000000, R29 = R29 << 2 = 0x0000020C
+ldb r30, r29, 0x0000
+[F] R30 = MEM[R29 + 0x0000] = 0xFF
+ldb r30, r29, 0x0001
+[F] R30 = MEM[R29 + 0x0001] = 0x01
+ldb r30, r29, 0x0002
+[F] R30 = MEM[R29 + 0x0002] = 0x20
+ldb r30, r29, 0x0003
+[F] R30 = MEM[R29 + 0x0003] = 0xEF
+ret r31
+[F] PC = R31 << 2 = 0x000001F4
+call r31, r0, 0x0026
+[F] R31 = (PC + 4) >> 2 = 0x0000007E, PC = (R0 + 0x0026) << 2 = 0x00000098
+stw r1, 0x0000, r2
+[F] MEM[(R1 + 0x0000) << 2] = R2 = 0xFF0120EF
+stw r1, 0x0001, r3
+[F] MEM[(R1 + 0x0001) << 2] = R3 = 0x0000AAAA
+stw r1, 0x0002, r4
+[F] MEM[(R1 + 0x0002) << 2] = R4 = 0xBBBB0000
+stw r1, 0x0003, r5
+[F] MEM[(R1 + 0x0003) << 2] = R5 = 0x5555AAAA
+stw r1, 0x0004, r6
+[F] MEM[(R1 + 0x0004) << 2] = R6 = 0xAAAA5555
+stw r1, 0x0005, r7
+[F] MEM[(R1 + 0x0005) << 2] = R7 = 0x12345678
+stw r1, 0x0006, r8
+[F] MEM[(R1 + 0x0006) << 2] = R8 = 0x9ABCDEF0
+stw r1, 0x0007, r9
+[F] MEM[(R1 + 0x0007) << 2] = R9 = 0x00000001
+stw r1, 0x0008, r10
+[F] MEM[(R1 + 0x0008) << 2] = R10 = 0x10000000
+stw r1, 0x0009, r11
+[F] MEM[(R1 + 0x0009) << 2] = R11 = 0x10101010
+stw r1, 0x000A, r12
+[F] MEM[(R1 + 0x000A) << 2] = R12 = 0x01010101
+stw r1, 0x000B, r13
+[F] MEM[(R1 + 0x000B) << 2] = R13 = 0xABCDEF00
+stw r1, 0x000C, r14
+[F] MEM[(R1 + 0x000C) << 2] = R14 = 0x00ABCDEF
+stw r1, 0x000D, r15
+[F] MEM[(R1 + 0x000D) << 2] = R15 = 0x00005555
+stw r1, 0x000E, r16
+[F] MEM[(R1 + 0x000E) << 2] = R16 = 0x98765432
+stw r1, 0x000F, r17
+[F] MEM[(R1 + 0x000F) << 2] = R17 = 0x00001234
+stw r1, 0x0010, r18
+[F] MEM[(R1 + 0x0010) << 2] = R18 = 0x12340000
+stw r1, 0x0011, r19
+[F] MEM[(R1 + 0x0011) << 2] = R19 = 0x11111111
+stw r1, 0x0012, r20
+[F] MEM[(R1 + 0x0012) << 2] = R20 = 0x97234254
+stw r1, 0x0013, r21
+[F] MEM[(R1 + 0x0013) << 2] = R21 = 0xABDF39AE
+stw r1, 0x0014, r22
+[F] MEM[(R1 + 0x0014) << 2] = R22 = 0x82BC98AF
+stw r1, 0x0015, r23
+[F] MEM[(R1 + 0x0015) << 2] = R23 = 0x00000003
+stw r1, 0x0016, r24
+[F] MEM[(R1 + 0x0016) << 2] = R24 = 0x00000033
+stw r1, 0x0017, r25
+[F] MEM[(R1 + 0x0017) << 2] = R25 = 0x24242424
+stw r1, 0x0018, r26
+[F] MEM[(R1 + 0x0018) << 2] = R26 = 0x42424242
+stw r1, 0x0019, r27
+[F] MEM[(R1 + 0x0019) << 2] = R27 = 0x88888888
+stw r1, 0x001A, r28
+[F] MEM[(R1 + 0x001A) << 2] = R28 = 0xAABBCCDD
+add r29, r1, r0
+[U] FR = 0x00000000, R29 = R1 + R0 = 0x00000083
+shl r29, r29, 1
+[U] ER = 0x00000000, R29 = R29 << 2 = 0x0000020C
+stb r29, 0x0000, r28
+[F] MEM[R29 + 0x0000] = R28 = 0xDD
+shr r28, r28, 7
+[U] ER = 0x00000000, R28 = R28 >> 8 = 0x00AABBCC
+stb r29, 0x0001, r28
+[F] MEM[R29 + 0x0001] = R28 = 0xCC
+shr r28, r28, 7
+[U] ER = 0x00000000, R28 = R28 >> 8 = 0x0000AABB
+stb r29, 0x0002, r28
+[F] MEM[R29 + 0x0002] = R28 = 0xBB
+shr r28, r28, 7
+[U] ER = 0x00000000, R28 = R28 >> 8 = 0x000000AA
+stb r29, 0x0003, r28
+[F] MEM[R29 + 0x0003] = R28 = 0xAA
+ret r31
+[F] PC = R31 << 2 = 0x000001F8
+call r31, r0, 0x004B
+[F] R31 = (PC + 4) >> 2 = 0x0000007F, PC = (R0 + 0x004B) << 2 = 0x0000012C
+add pc, pc, r0
+[U] FR = 0x00000000, PC = PC + R0 = 0x0000004B
+sub ir, ir, r0
+[U] FR = 0x00000000, IR = IR - R0 = 0x08030420
+mul er, er, r0
+[U] FR = 0x00000000, ER = 0x00000000, ER = ER * R0 = 0x00000000
+div r30, pc, fr
+[U] FR = 0x00000008, ER = 0x00000000, R30 = PC / FR = 0x000000EF
+add r30, fr, r0
+[U] FR = 0x00000008, R30 = FR + R0 = 0x00000008
+cmp ir, pc
+[U] FR = 0x0000000C
+add fr, r0, r30
+[U] FR = 0x00000008, FR = R0 + R30 = 0x00000008
+shl r30, ir, 33
+[U] ER = 0xA007E084, R30 = IR << 34 = 0x00000000
+shr r30, pc, 39
+[U] ER = 0x00000000, R30 = PC >> 40 = 0x00A007E0
+and r30, ir, fr
+[U] R30 = IR & FR = 0x00000000
+not r30, ir
+[U] R30 = ~IR = 0xC7FF7C3E
+or r30, er, ir
+[U] R30 = ER | IR = 0x4001F841
+xor r30, er, fr
+[U] R30 = ER ^ FR = 0x00000008
+ret r31
+[F] PC = R31 << 2 = 0x000001FC
+call r31, r0, 0x0059
+[F] R31 = (PC + 4) >> 2 = 0x00000080, PC = (R0 + 0x0059) << 2 = 0x00000164
+add r2, r3, r4
+[U] FR = 0x00000008, R2 = R3 + R4 = 0xBBBBAAAA
+addi r5, r7, 12345
+[F] FR = 0x00000008, R5 = R7 + 0x3039 = 0x123486B1
+sub r29, r13, r9
+[U] FR = 0x00000008, R29 = R13 - R9 = 0xABCDEEFF
+subi r3, r31, 4567
+[F] FR = 0x00000018, R3 = R31 - 0x11D7 = 0xFFFFEEA9
+mul r18, r14, r30
+[U] FR = 0x00000008, ER = 0x00000000, R18 = R14 * R30 = 0x055E6F78
+muli r6, r10, 42
+[F] FR = 0x00000018, ER = 0x00000002, R6 = R10 * 0x002A = 0xA0000000
+div r11, r25, r27
+[U] FR = 0x00000000, ER = 0x24242424, R11 = R25 / R27 = 0x00000000
+divi r13, r14, 15
+[F] FR = 0x00000000, ER = 0x00000000, R13 = R14 / 0x000F = 0x000B7421
+shl r27, r28, 36
+[U] ER = 0x00001540, R27 = R28 << 37 = 0x00000000
+shr r28, r27, 16
+[U] ER = 0x00000000, R28 = R27 >> 17 = 0x0AA00000
+ret r31
+[F] PC = R31 << 2 = 0x00000200
+call r31, r0, 0x0064
+[F] R31 = (PC + 4) >> 2 = 0x00000081, PC = (R0 + 0x0064) << 2 = 0x00000190
+and r2, r4, r5
+[U] R2 = R4 & R5 = 0x12300000
+andi r6, r2, 43605
+[F] R6 = R2 & 0xAA55 = 0x00000000
+not r23, r28
+[U] R23 = ~R28 = 0xF55FFFFF
+noti r25, 21930
+[F] R25 = ~0x55AA = 0xFFFFAA55
+or r8, r9, r11
+[U] R8 = R9 | R11 = 0x00000001
+ori r7, r9, 43690
+[F] R7 = R9 | 0xAAAA = 0x0000AAAB
+xor r19, r3, r22
+[U] R19 = R3 ^ R22 = 0x7D437606
+xori r15, r24, 21845
+[F] R15 = R24 ^ 0x5555 = 0x00005566
+ret r31
+[F] PC = R31 << 2 = 0x00000204
+call r31, r0, 0x006D
+[F] R31 = (PC + 4) >> 2 = 0x00000082, PC = (R0 + 0x006D) << 2 = 0x000001B4
+addi r2, r0, 1
+[F] FR = 0x00000000, R2 = R0 + 0x0001 = 0x00000001
+cmp r0, r2
+[U] FR = 0x00000002
+beq 0x0000006D
+[S] PC = 0x000001C0
+cmpi r2, 1
+[F] FR = 0x00000001
+blt 0x0000006D
+[S] PC = 0x000001C8
+cmp r0, r2
+[U] FR = 0x00000002
+bgt 0x0000006D
+[S] PC = 0x000001D0
+cmpi r2, 1
+[F] FR = 0x00000001
+bne 0x0000006D
+[S] PC = 0x000001D8
+cmpi r2, 0
+[F] FR = ble
+0x00000004 0x0000006D
+[S] PC = 0x000001E0
+cmpi r2, 2
+[F] FR = 0x00000002
+bge 0x0000006D
+[S] PC = 0x000001E8
+ret r31
+[F] PC = R31 << 2 = 0x00000208
+int 0
+[S] CR = 0x00000000, PC = 0x00000000
+[END OF SIMULATION]
