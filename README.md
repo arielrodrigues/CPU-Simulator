@@ -1,5 +1,5 @@
 #A simulator for a simple CPU in C++
-(Architeture based on risk by Bruno Otavio Piedade Prado [DCOMP-UFS] - for more details about architeture contact Bruno Otavio Piedade Prado - admin.dcomp.ufs.br/perfil/13227/)
+Architeture based on risk by Bruno Otavio Piedade Prado [DCOMP-UFS] - for more details about architeture contact Bruno Otavio Piedade Prado - admin.dcomp.ufs.br/perfil/13227/
 
 (Sorry, only br portuguese below)
 
