@@ -12,7 +12,7 @@
 
 // array of memory: bitset of 32 pos
 std::bitset<32>* memory = NULL;
-int memoryLenght = 0;
+int memoryLength = 0;
 
 // registers
 uint32_t R[64];
@@ -36,8 +36,7 @@ int main(int argc, char *argv[]) {
 	ULA();
 	WriteToFile(outFileName);
 
-//	delete[] memory;
-	memory = NULL;
+	//	delete[] memory;
 	return 0;
 }
 
@@ -67,13 +66,14 @@ void InstoMem(std::string* fileInMemory) {
 			hexAux = stoul(fileInMemory->substr(0, pos), NULL, 16);
 			memory[i++] = std::bitset<32>(hexAux);
 			*fileInMemory = fileInMemory->substr(pos + sizeof(token));
-		} else if (fileInMemory->length() >= 10){
+		}
+		else if (fileInMemory->length() >= 10) {
 			hexAux = stoul(fileInMemory->substr(0, 10), NULL, 16);
 			memory[i] = std::bitset<32>(hexAux);
 			break;
 		}
 	} while (pos != string::npos);
-	if (fileInMemory->length() > 0) fileInMemory->clear(); 
+	if (fileInMemory->length() > 0) fileInMemory->clear();
 	fileInMemory = NULL;
 }
 
@@ -89,9 +89,9 @@ void ReadFile(std::string fileName) {
 	else {
 		// puts the file in the memory
 		filetoMem(&file, &fileInMemory);
-		memoryLenght = [file = fileInMemory]()->uint32_t { int j = 0;
-			for (int i = 0; i<=file.length(); j+=file[i] == '\n', i++); return j; }();
-		memory = new std::bitset<32>[memoryLenght];
+		memoryLength = [file = fileInMemory]()->uint32_t { int j = 0;
+		for (int i = 0; i <= file.length(); j += file[i] == '\n', i++); return j; }();
+		memory = new std::bitset<32>[memoryLength];
 		InstoMem(&fileInMemory);
 	}
 }
@@ -139,25 +139,33 @@ void ULA() {
 	ssout << "[END OF SIMULATION]";
 }
 
-std::string getRName(uint64_t n, bool uppercase) {
+std::string getRformat(uint64_t n, bool uppercase) {
 	using namespace std;
 	if ((n < 32) || (n > 35)) {
-		if (uppercase) return ('R' + to_string(n)); 
+		if (uppercase) return ('R' + to_string(n));
 		else return ('r' + to_string(n));
 	}
-	else if (n == 32) if (uppercase) return "PC"; else return "pc";
-	else if (n == 33) if (uppercase) return "IR"; else return "ir";
-	else if (n == 34) if (uppercase) return "ER"; else return "er";
-	else if (n == 35) if (uppercase) return "FR"; else return "fr";
+	else switch (n) {
+	case (32): return (uppercase) ? "PC" : "pc"; break;
+	case (33): return (uppercase) ? "IR" : "ir"; break;
+	case (34): return (uppercase) ? "ER" : "er"; break;
+	case (35): return (uppercase) ? "FR" : "fr"; break;
+	}
+}
+
+std::string getHexformat(int r, int nzeros) {
+	std::stringstream ssformated;
+	ssformated << "0x" << std::hex << std::setfill('0') << std::uppercase << std::setw(nzeros) << r;
+	return ssformated.str();
 }
 
 // all operations of type U
 std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint64_t z = (instruction.to_ulong() & 0x7C00) >> 10, x = (instruction.to_ulong() & 0x3E0) >> 5,
-		y = (instruction.to_ulong() & 0x1F); uint32_t e = (instruction.to_ulong() & 0x70000) >> 16;
-	if ((e & 0x4) >> 2) z = (uint64_t)(1 << 5) | z;
-	if ((e & 0x2) >> 1) x = (uint64_t)(1 << 5) | x;
-	if (e & 0x1) y = (uint64_t)(1 << 5) | y;
+		y = (instruction.to_ulong() & 0x1F); uint32_t e = (instruction.to_ulong() & 0x38000) >> 15;
+	if ((e & 0x4) >> 2) z = (uint64_t)((1 << 5) | z);
+	if ((e & 0x2) >> 1) x = (uint64_t)((1 << 5) | x);
+	if (e & 0x1) y = (uint64_t)((1 << 5) | y);
 	uint64_t temp = (uint64_t)0;
 	std::stringstream result;
 	using namespace std;
@@ -165,111 +173,107 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	switch (OP.to_ulong()) {
 	case (0):
 		if (x == 0 && y == 0 && z == 0) return result;
-		result << "add " << getRName(z, false) << ", " << getRName(x, false) << ", " 
-			<< getRName(y, false) << "\n";
+		result << "add " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
+			<< getRformat(y, false) << "\n";
 		temp = (uint64_t)R[x] + R[y];
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << R[35] << ", " << 
-			getRName(z, true) << " = " << getRName(x, true) << " + " << getRName(y, true) << " = 0x" 
-			<< hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] FR = " << getHexformat(R[35], 8) << ", " << getRformat(z, true) << " = " << getRformat(x, true)
+			<< " + " << getRformat(y, true) << " = " << getHexformat(R[z], 8);
 		break;
 	case (2):
-		result << "sub " << getRName(z, false) << ", " << getRName(x, false) << ", "
-			<< getRName(y, false) << "\n";
+		result << "sub " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
+			<< getRformat(y, false) << "\n";
 		temp = (uint64_t)R[x] - R[y];
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << R[35] << ", " << 
-			getRName(z, true) << " = " << getRName(x, true) << " - " << 
-			getRName(y, true) <<	" = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] FR = " << getHexformat(R[35], 8) << ", " << getRformat(z, true) << " = " << getRformat(x, true) 
+			<< " - " <<	getRformat(y, true) << " = " << getHexformat(R[z], 8);
 		break;
 	case (4):
-		result << "mul " << getRName(z, false) << ", " << getRName(x, false) << ", " 
-			<< getRName(y, false) << "\n";
+		result << "mul " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
+			<< getRformat(y, false) << "\n";
 		temp = (uint64_t)R[x] * R[y];
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << R[35] << ", ER = 0x" << hex
-			<< setfill('0') << uppercase << setw(8) << R[34] << ", " << getRName(z, true) << " = " << 
-			getRName(x, true) << " * " << getRName(y, true) << " = 0x" << hex << setfill('0') << 
-			uppercase << setw(8) << R[z];
+		result << "[U] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " << 
+			getRformat(z, true) << " = " << getRformat(x, true) << " * " << getRformat(y, true) << " = " << 
+			getHexformat(R[z], 8);
 		break;
 	case (6):
-		if (R[y] == 0) { R[35] = R[35] | 0x8; return result; }
-		result << "div " << getRName(z, false) << ", " << getRName(x, false) << ", " << getRName(y, false) << "\n";
-		R[z] = R[x] / R[y];
-		R[34] = R[x] % R[y];
-		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << R[35] << ", " << 
-			getRName(z, true) << " = " << getRName(x, true) << " / " << getRName(y, true) 
-			<< " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		(R[y] == 0) ? (R[35] = (R[35] | 0x8)) : (R[35] = 0x0);
+		result << "div " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
+		if (!(R[35] & 0x8)) { R[z] = R[x] / R[y]; R[34] = R[x] % R[y]; }
+		else R[34] = 0x0;
+		result << "[U] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " << 
+			getRformat(z, true) << " = "<< getRformat(x, true) << " / " << getRformat(y, true) << " = " 
+			<< getHexformat(R[z], 8);
 		break;
 	case (8):
-		result << "cmp " << getRName(x, false) << ", " << getRName(y, false) << "\n";
+		result << "cmp " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
 		if (R[x] == R[y]) R[35] = R[35] | 0x1; else R[35] = R[35] & 0xFFFFFFFE;
 		if (R[x] < R[y]) R[35] = R[35] | 0x2; else R[35] = R[35] & 0xFFFFFFFD;
 		if (R[x] > R[y]) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
-		result << "[U] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35];
+		result << "[U] FR = " << getHexformat(R[35], 8);
 		break;
-	case (10): 
-		result << "shl " << getRName(z, false) << ", " << getRName(x, false) << ", " << dec << y << "\n";
-		temp = (uint64_t)R[x] << (uint64_t)(y + 1); 
+	case (10):
+		result << "shl " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << dec << y << "\n";
+		temp = (uint64_t)R[x] << (uint64_t)(y + 1);
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB; 
-		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", " << getRName(z, true)
-			<< " = " << getRName(x, true) << " << " << dec << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
+		result << "[U] ER = " << getHexformat(R[34], 8) << ", " << getRformat(z, true)
+			<< " = " << getRformat(x, true) << " << " << dec << (y + 1) << " = " << getHexformat(R[z], 8);
 		break;
 	case (11):
-		result << "shr " << getRName(z, false) << ", " << getRName(x, false) << ", " << dec << y << "\n";
-		temp = (uint64_t)((uint64_t)R[34]<<32 |(0xFFFFFFFF & (uint64_t)R[x]));
+		result << "shr " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << dec << y << "\n";
+		temp = (uint64_t)((uint64_t)R[34] << 32 | (0xFFFFFFFF & (uint64_t)R[x]));
 		temp = (temp >> (y + 1));
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
-		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", " << getRName(z, true)
-			<< " = " << getRName(x, true) << " >> " << dec << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];;
+		result << "[U] ER = " << getHexformat(R[34], 8) << ", " << getRformat(z, true) << " = " << getRformat(x, true)
+			<< " >> " << dec << (y + 1) << " = " << getHexformat(R[z], 8);;
 		break;
 	case (12):
-		result << "and " << getRName(z, false) << ", " << getRName(x, false) << ", " << getRName(y, false) << "\n";
+		result << "and " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
 		R[z] = R[x] & R[y];
-		result << "[U] "<< getRName(z, true) << " = " << getRName(x, true) << " & " << getRName(y, true)
-			<< " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] " << getRformat(z, true) << " = " << getRformat(x, true) << " & " << getRformat(y, true)
+			<< " = " << getHexformat(R[z], 8);
 		break;
 	case (14):
-		result << "not " << getRName(x, false) << ", " << getRName(y, false) << "\n";
-		R[x] = !R[y];
-		result << "[U] " << getRName(x, true) << " = ~" << getRName(y, true) << " = 0x" 
-			<< hex << setfill('0') << uppercase << setw(8) << R[x];
+		result << "not " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
+		R[x] = ~R[y];
+		result << "[U] " << getRformat(x, true) << " = ~" << getRformat(y, true) << " = " << getHexformat(R[x], 8);
 		break;
 	case (16):
-		result << "or " << getRName(z, false) << ", " << getRName(x, false) << ", " <<
-			getRName(y, false) << "\n";
+		result << "or " << getRformat(z, false) << ", " << getRformat(x, false) << ", " <<
+			getRformat(y, false) << "\n";
 		R[z] = R[x] | R[y];
-		result << "[U] " << getRName(z, true) << " = " << getRName(x, true) << " | " << 
-			getRName(y, true) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] " << getRformat(z, true) << " = " << getRformat(x, true) << " | " <<
+			getRformat(y, true) << " = " << getHexformat(R[z], 8);
 		break;
 	case (18):
-		result << "xor " << getRName(z, false) << ", " << getRName(x, false) << ", " << 
-			getRName(y, false) << "\n";
+		result << "xor " << getRformat(z, false) << ", " << getRformat(x, false) << ", " <<
+			getRformat(y, false) << "\n";
 		R[z] = R[x] ^ R[y];
-		result << "[U] " << getRName(z, true) << " = " << getRName(x, true) << " ^ " << 
-			getRName(y, true) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] " << getRformat(z, true) << " = " << getRformat(x, true) << " ^ " <<
+			getRformat(y, true) << " = " << getHexformat(R[z], 8);
 		break;
 	case (24):
-		result << "push " << getRName(x, false) << ", " << getRName(y, false) << "\n";
+		result << "push " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
 		memory[R[x]] = R[y];
-		result << "[U] MEM[" << getRName(x, true) << "--] = " << getRName(y, true) << " = 0x" 
-			<< hex << setfill('0') << uppercase << setw(8) << memory[R[x]--].to_ulong();
+		result << "[U] MEM[" << getRformat(x, true) << "--] = " << getRformat(y, true) << " = "
+			<< getHexformat(memory[R[x]--].to_ulong(), 8);
 		break;
-	case (25):		
-		result << "pop " << getRName(x, false) << ", " << getRName(y, false) << "\n";
+	case (25):
+		result << "pop " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
 		R[x] = memory[++R[y]].to_ulong();
-		result << "[U] " << getRName(x, true) <<" = MEM[++" << getRName(y, true) << "] = 0x" 
-			<< hex << setfill('0') << uppercase << setw(8) << R[x];
+		result << "[U] " << getRformat(x, true) << " = MEM[++" << getRformat(y, true) << "] = "
+			<< getHexformat(R[x], 8);
 	}
 	return result;
 }
@@ -285,148 +289,132 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 
 	switch (OP.to_ulong()) {
 	case (1):
-		result << "addi " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "addi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		temp = (uint64_t)R[y] + IM16;
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = (temp & 0xFFFFFFFF);
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35] << ", " << getRName(x, true)
-			<< " = "<< getRName(y, true) << " + 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x"
-			<< setw(8) << uppercase << R[x];
+		result << "[F] FR = " << getHexformat(R[35], 8) << ", " << getRformat(x, true) << " = " << getRformat(y, true) 
+			<< " + " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (3):
-		result << "subi " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "subi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		temp = (uint64_t)R[y] - IM16;
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35] << ", " << getRName(x, true)
-			<< " = " << getRName(y, true) << " - 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x"
-			<< setw(8) << uppercase << R[x];
+		result << "[F] FR = " << getHexformat(R[35], 8) << ", " << getRformat(x, true) << " = " << getRformat(y, true) 
+			<< " - " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (5):
-		result << "muli " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "muli " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		temp = (uint64_t)R[y] * IM16;
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35] << ", ER = 0x" <<
-			hex << setfill('0') << setw(8) << uppercase << R[34] << ", " << getRName(x, true) << " = " << getRName(y, true)
-			<< " * 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex << setfill('0') << setw(8)
-			<< uppercase << R[x];
+		result << "[F] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " << getRformat(x, true) 
+			<< " = " << getRformat(y, true) << " * " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (7):
-		result << "divi " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "divi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		if (IM16 != 0) { R[35] = R[35] & 0x7; R[x] = R[y] / IM16; R[34] = R[y] % IM16; }
 		else { R[35] = R[35] | 0x8; R[34] = 0; }
-		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35] << ", ER = 0x" << hex
-			<< setfill('0') << setw(8) << uppercase << R[34] << ", " << getRName(x, true) << " = " << getRName(y, true)
-			<< " / 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex << 
-			setfill('0') << setw(8) << uppercase << R[x];
+		result << "[F] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " << getRformat(x, true) 
+			<< " = " << getRformat(y, true) << " / " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (9):
-		result << "cmpi " << getRName(x, false) << ", " << IM16 << "\n";
+		result << "cmpi " << getRformat(x, false) << ", " << IM16 << "\n";
 		if (R[x] == IM16) R[35] = R[35] | 0x1; else R[35] = R[35] & 0xFFFFFFFE;
 		if (R[x] < IM16) R[35] = R[35] | 0x2; else R[35] = R[35] & 0xFFFFFFFD;
 		if (R[x] > IM16) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
-		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35];
+		result << "[F] FR = " << getHexformat(R[35], 8);
 		break;
 	case (13):
-		result << "andi " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "andi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		R[x] = R[y] & IM16;
-		result << "[F] " << getRName(x, true) << " = " << getRName(y, true) << " & 0x" << hex << setfill('0') 
-			<< uppercase << setw(4) << IM16 << " = 0x" << setw(8) << R[x];
+		result << "[F] " << getRformat(x, true) << " = " << getRformat(y, true) << " & " << getHexformat(IM16, 4) << " = " 
+			<< getHexformat(R[x], 8);
 		break;
 	case (15):
-		result << "noti " << getRName(x, false) << ", " << IM16 << "\n";
-		R[x] = !IM16;
-		result << "[F] " << getRName(x, true) << " = ~0x" << hex << setfill('0') << uppercase << setw(4) <<
-			IM16 << " = 0x" << setw(8) << R[x];
+		result << "noti " << getRformat(x, false) << ", " << IM16 << "\n";
+		R[x] = ~IM16;
+		result << "[F] " << getRformat(x, true) << " = ~" << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (17):
-		result << "ori " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "ori " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		R[x] = R[y] | IM16;
-		result << "[F] " << getRName(x, true) << " = " << getRName(y, true) << " | 0x" << hex << setfill('0') << 
-			uppercase << setw(4) << IM16 << " = 0x" << setw(8) << R[x];
+		result << "[F] " << getRformat(x, true) << " = " << getRformat(y, true) << " | " << getHexformat(IM16, 4) 
+			<< " = " << getHexformat(R[x], 8);
 		break;
 	case (19):
-		result << "xori " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
+		result << "xori " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
 		R[x] = R[y] ^ IM16;
-		result << "[F] " << getRName(x, true) << " = " << getRName(y, true) << " ^ 0x" << hex << setfill('0') << 
-			uppercase << setw(4) << IM16 << " = 0x" << setw(8) << R[x];
+		result << "[F] " << getRformat(x, true) << " = " << getRformat(y, true) << " ^ " << getHexformat(IM16, 4) 
+			<< " = " << getHexformat(R[x], 8);
 		break;
 	case (20):
-		result << "ldw " << getRName(x, false) << ", " << getRName(y, false) << ", 0x" << hex <<
-			setfill('0') << setw(4) << uppercase << IM16 << "\n";
-		R[x] = ((uint64_t) memory[(R[y] + IM16)].to_ulong());
-		result << "[F] " << getRName(x, true) << " = MEM[(" << getRName(y, true) << " + 0x" << hex << setfill('0')
-			<< setw(4) << uppercase << IM16 << ") << 2]" << " = 0x" << setw(8) << uppercase << R[x];
+		result << "ldw " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << "\n";
+		R[x] = ((uint64_t)memory[(R[y] + IM16)].to_ulong());
+		result << "[F] " << getRformat(x, true) << " = MEM[(" << getRformat(y, true) << " + " << getHexformat(IM16, 4) 
+			<< ") << 2]" << " = " << getHexformat(R[x], 8);
 		break;
-	case (21): 
-		result << "ldb " << getRName(x, false) <<  ", " << getRName(y, false) << ", 0x" << hex << setfill('0')
-			<< setw(4) << uppercase	<< IM16 << "\n";
-		R[x] = memory[(R[y] + IM16)/4].to_ulong();
+	case (21):
+		result << "ldb " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << "\n";
+		R[x] = memory[(R[y] + IM16) / 4].to_ulong();
 		switch ((R[y] + IM16) % 4) {
-			case 3:
-				R[x] = (R[x] & 0x000000FF);
-				break;
-			case 2:
-				R[x] = (R[x] & 0x0000FF00) >> 8;
-				break;
-			case 1:
-				R[x] = (R[x] & 0x00FF0000) >> 16;
-				break;
-			default:
-				R[x] = (R[x] & 0xFF000000) >> 24;
+		case 3:
+			R[x] = (R[x] & 0x000000FF);
+			break;
+		case 2:
+			R[x] = (R[x] & 0x0000FF00) >> 8;
+			break;
+		case 1:
+			R[x] = (R[x] & 0x00FF0000) >> 16;
+			break;
+		default:
+			R[x] = (R[x] & 0xFF000000) >> 24;
 		}
-		result << "[F] " << getRName(x, true) << " = MEM[" << getRName(y, true) <<" + 0x" << hex << setfill('0') <<
-			setw(4)	<< uppercase << IM16 << "] = 0x" << setw(2) << R[x];
+		result << "[F] " << getRformat(x, true) << " = MEM[" << getRformat(y, true) << " + " << getHexformat(IM16, 4) << "] = "
+			<< getHexformat(R[x], 2);
 		break;
 	case (22):
-		result << "stw " << getRName(x, false) << ", 0x" << hex <<
-			setfill('0') << setw(4) << uppercase << IM16 << ", " << getRName(y, false) << "\n";
+		result << "stw " << getRformat(x, false) << ", " << getHexformat(IM16, 4) << ", " << getRformat(y, false) << "\n";
 		memory[(R[x] + IM16)] = R[y];
-		result << "[F] MEM[(" << getRName(x, true) << " + 0x" << hex << setfill('0')
-			<< setw(4) << uppercase << IM16 << ") << 2]" << " = " << getRName(y, true) << " = 0x" <<
-			hex << setfill('0') << setw(8) << uppercase << R[y];
+		result << "[F] MEM[(" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << ") << 2]" << " = " << getRformat(y, true)
+			<< " = " << getHexformat(R[y], 8);
 		break;
 	case (23):
-		result << "stb " << getRName(x, false) <<  ", 0x" << hex << setfill('0') << setw(4) << uppercase
-			<< IM16 << ", " << getRName(y, false) << "\n";
+		result << "stb " << getRformat(x, false) << ", " << getHexformat(IM16, 4) << ", " << getRformat(y, false) << "\n";
 		switch ((R[x] + IM16) % 4) {
-			case 3:
-				memory[(R[x] + IM16)/4] = (memory[(R[x] + IM16)/4].to_ulong() & 0xFFFFFF00) | R[y];
-				temp = memory[(R[x] + IM16)/4].to_ulong() & 0x000000FF;
-				break;
-			case 2:
-				memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16)/4].to_ulong() & 0xFFFF00FF) | (R[y] << 8);
-				temp = (memory[(R[x] + IM16)/4].to_ulong() & 0x0000FF00) >> 8;
-				break;
-			case 1:
-				memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16)/4].to_ulong() & 0xFF00FFFF) | (R[y] << 16);
-				temp = (memory[(R[x] + IM16)/4].to_ulong() & 0x00FF0000) >> 16;
-				break;
-			default:
-				memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16) / 4].to_ulong() & 0x00FFFFFF) | (R[y] << 24);
-				temp = (memory[(R[x] + IM16)/4].to_ulong() & 0xFF000000) >> 24;
+		case 3:
+			memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16) / 4].to_ulong() & 0xFFFFFF00) | R[y];
+			temp = memory[(R[x] + IM16) / 4].to_ulong() & 0x000000FF;
+			break;
+		case 2:
+			memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16) / 4].to_ulong() & 0xFFFF00FF) | (R[y] << 8);
+			temp = (memory[(R[x] + IM16) / 4].to_ulong() & 0x0000FF00) >> 8;
+			break;
+		case 1:
+			memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16) / 4].to_ulong() & 0xFF00FFFF) | (R[y] << 16);
+			temp = (memory[(R[x] + IM16) / 4].to_ulong() & 0x00FF0000) >> 16;
+			break;
+		default:
+			memory[(R[x] + IM16) / 4] = (memory[(R[x] + IM16) / 4].to_ulong() & 0x00FFFFFF) | (R[y] << 24);
+			temp = (memory[(R[x] + IM16) / 4].to_ulong() & 0xFF000000) >> 24;
 		}
-		result << "[F] MEM[" << getRName(x, true) << " + 0x" << hex << setfill('0') << setw(4) << uppercase
-			<< IM16 << "] = " << getRName(y, true) << " = 0x" << hex << setw(2) << temp;
+		result << "[F] MEM[" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << "] = " << getRformat(y, true) 
+			<< " = " << getHexformat(temp, 2);
 		break;
 	case (37):
-		result << "call " << getRName(x, false) << ", " << getRName(y, false) << ", 0x" << hex << setfill('0') 
-			<< setw(4) << uppercase	<< IM16 << "\n";
+		result << "call " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << "\n";
 		R[x] = ++R[32]; R[0] = 0x0; R[32] = R[y] + IM16;
-		result << "[F] " << getRName(x, true) << " = (PC + 4) >> 2 = 0x" << hex << setfill('0') << setw(8)
-			<< uppercase << (R[x]) << ", PC = (" << getRName(y, true) << " + 0x" << hex << setfill('0') << setw(4)
-			<< uppercase << IM16 << ") << 2 = 0x" << hex << setfill('0') << setw(8) << uppercase 
-			<< (R[32]-- << 2);
+		result << "[F] " << getRformat(x, true) << " = (PC + 4) >> 2 = " << getHexformat(R[x], 8) << ", PC = (" << getRformat(y, true) 
+			<< " + " << getHexformat(IM16, 4) << ") << 2 = " << getHexformat((R[32]-- << 2), 8);
 		break;
 	case (38):
-		result << "ret " << getRName(x, false) << "\n";
+		result << "ret " << getRformat(x, false) << "\n";
 		R[32] = R[x];
-		result << "[F] PC = " << getRName(x, true) << " << 2 = 0x" << hex << setfill('0') << setw(8)
-			<< uppercase << (R[32]-- << 2);
+		result << "[F] PC = " << getRformat(x, true) << " << 2 = " << getHexformat((R[32]-- << 2), 8);
 	}
 	return result;
 }
@@ -478,8 +466,7 @@ std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction, bool 
 	}
 
 	if (sucess) R[32] = IM26; else R[32]++;
-	result << "0x" << hex << setfill('0') << setw(8) << uppercase << IM26 << "\n"
-		<< "[S] PC = 0x" << hex << setfill('0') << setw(8) << uppercase << (R[32] << 2);
+	result << getHexformat(IM26, 8) << "\n" << "[S] PC = " << getHexformat(R[32]<<2, 8);
 
 	return result;
 }
@@ -490,7 +477,7 @@ void WriteToFile(std::string outFileName) {
 	ofstream file(outFileName.c_str());
 	if (!file.is_open()) {
 		cout << "Unable to write to file." << endl;
-	} 
+	}
 	else {
 		file << ssout.rdbuf();
 		ssout.clear();
