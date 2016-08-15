@@ -31,13 +31,10 @@ void WriteToFile(std::string);
 // main :)
 int main(int argc, char *argv[]) {
 	using namespace std;
-	string inFileName = "file.txt", outFileName = "out.txt";//argv[1], outFileName = argv[2];//
+	string inFileName = argv[1], outFileName = argv[2];
 	ReadFile(inFileName.c_str());
 	ULA();
 	WriteToFile(outFileName);
-
-	cout << "Press the ENTER key";
-	while (cin.get() != '\n') {}
 
 //	delete[] memory;
 	memory = NULL;
@@ -158,9 +155,9 @@ std::string getRName(uint64_t n, bool uppercase) {
 std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint64_t z = (instruction.to_ulong() & 0x7C00) >> 10, x = (instruction.to_ulong() & 0x3E0) >> 5,
 		y = (instruction.to_ulong() & 0x1F); uint32_t e = (instruction.to_ulong() & 0x70000) >> 16;
-	if (e & 0x4 >> 2) z = (uint64_t)((e & 0x4) << 3) | z;
-	if (e & 0x2 >> 1) x = (uint64_t)((e & 0x2) << 4) | x;
-	if (e & 0x1) y = (uint64_t)(e & 0x1) << 5 | y;
+	if ((e & 0x4) >> 2) z = (uint64_t)(1 << 5) | z;
+	if ((e & 0x2) >> 1) x = (uint64_t)(1 << 5) | x;
+	if (e & 0x1) y = (uint64_t)(1 << 5) | y;
 	uint64_t temp = (uint64_t)0;
 	std::stringstream result;
 	using namespace std;
@@ -174,9 +171,9 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
-		result << "[U] FR = 0x" << hex << setfill('0') << setw(8) << R[35] << ", " << 
-			getRName(z, true) << " = " << getRName(x, true) << " + " <<
-			getRName(y, true) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+		result << "[U] FR = 0x" << hex << setfill('0') << uppercase << setw(8) << R[35] << ", " << 
+			getRName(z, true) << " = " << getRName(x, true) << " + " << getRName(y, true) << " = 0x" 
+			<< hex << setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (2):
 		result << "sub " << getRName(z, false) << ", " << getRName(x, false) << ", "
@@ -218,23 +215,23 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		result << "[U] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35];
 		break;
 	case (10): 
-		result << "shl " << getRName(z, false) << ", " << getRName(x, false) << ", " << y << "\n";
+		result << "shl " << getRName(z, false) << ", " << getRName(x, false) << ", " << dec << y << "\n";
 		temp = (uint64_t)R[x] << (uint64_t)(y + 1); 
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB; 
 		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", " << getRName(z, true)
-			<< " = " << getRName(x, true) << " << " << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
+			<< " = " << getRName(x, true) << " << " << dec << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];
 		break;
 	case (11):
-		result << "shr " << getRName(z, false) << ", " << getRName(x, false) << ", " << y << "\n";
+		result << "shr " << getRName(z, false) << ", " << getRName(x, false) << ", " << dec << y << "\n";
 		temp = (uint64_t)((uint64_t)R[34]<<32 |(0xFFFFFFFF & (uint64_t)R[x]));
 		temp = (temp >> (y + 1));
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
 		result << "[U] ER = 0x" << hex << setfill('0') << uppercase << setw(8) << R[34] << ", " << getRName(z, true)
-			<< " = " << getRName(x, true) << " >> " << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];;
+			<< " = " << getRName(x, true) << " >> " << dec << (y + 1) << " = 0x" << hex << setfill('0') << uppercase << setw(8) << R[z];;
 		break;
 	case (12):
 		result << "and " << getRName(z, false) << ", " << getRName(x, false) << ", " << getRName(y, false) << "\n";
@@ -314,7 +311,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
 		result << "[F] FR = 0x" << hex << setfill('0') << setw(8) << uppercase << R[35] << ", ER = 0x" <<
-			hex << setfill('0') << setw(8) << uppercase << R[34] << ", " << getRName(x, true) << " = R" << getRName(y, true)
+			hex << setfill('0') << setw(8) << uppercase << R[34] << ", " << getRName(x, true) << " = " << getRName(y, true)
 			<< " * 0x" << hex << setfill('0') << setw(4) << uppercase << IM16 << " = 0x" << hex << setfill('0') << setw(8)
 			<< uppercase << R[x];
 		break;
@@ -353,7 +350,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 			uppercase << setw(4) << IM16 << " = 0x" << setw(8) << R[x];
 		break;
 	case (19):
-		result << "xori " << getRName(x, false) << ", " << getRName(x, false) << ", " << IM16 << "\n";
+		result << "xori " << getRName(x, false) << ", " << getRName(y, false) << ", " << IM16 << "\n";
 		R[x] = R[y] ^ IM16;
 		result << "[F] " << getRName(x, true) << " = " << getRName(y, true) << " ^ 0x" << hex << setfill('0') << 
 			uppercase << setw(4) << IM16 << " = 0x" << setw(8) << R[x];
