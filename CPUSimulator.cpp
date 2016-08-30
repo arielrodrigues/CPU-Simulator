@@ -119,33 +119,40 @@ int getOPType(std::bitset<6> OP, bool okay) {
 	}
 }
 
+std::stringstream INTERRUPTION() {
+	std::stringstream result;
+	R[37] = R[32];
+	if (R[35] & 0x8) { R[36] = 0x1;	result = OPType_F(std::bitset<6>(39), std::bitset<32>(0x9C0013FE)); }
+	return result;
+}
+
 // executes instructions in memory
 void ULA() {
-	bool okay = true; std::stringstream result; 
-	R[35] = 0x40; // IE = true;
+	bool okay = true; std::stringstream result;
 	ssout << "[START OF SIMULATION]\n";
 	for (R[32] = 0; okay; ) {
 		IR = memory[R[32]]; R[33] = IR.to_ulong(); R[0] = 0;
 		auto OP = [instruction = IR]()->std::bitset<6> {
 			return (instruction.to_ulong() & 0xFC000000) >> 26; }();
 			switch (getOPType(OP, okay)) {
-				case ('U'):
-					result = OPType_U(OP, IR);
-					if (result.str().length() > 0)
-						ssout << result.str() << "\n";
-					std::cout << result.str() << "\n";
-					R[32]++;
-					break;
-				case ('F'):
-					result = OPType_F(OP, IR);
-					if (result.str().length() > 0)
-						ssout << result.str() << "\n";
-					std::cout << result.str() << "\n";
-					R[32]++;
-					break;
-				case ('S'): ssout << OPType_S(OP, IR, &okay).str() << "\n";
-					std::cout << OPType_S(OP, IR, &okay).str() << "\n";
+			case ('U'):
+				result = OPType_U(OP, IR);
+				if (result.str().length() > 0)
+					ssout << result.str() << "\n";
+				std::cout << result.str() << "\n";
+				R[32]++;
+				break;
+			case ('F'):
+				result = OPType_F(OP, IR);
+				if (result.str().length() > 0)
+					ssout << result.str() << "\n";
+				std::cout << result.str() << "\n";
+				R[32]++;
+				break;
+			case ('S'): ssout << OPType_S(OP, IR, &okay).str() << "\n";
+				std::cout << OPType_S(OP, IR, &okay).str() << "\n";
 			}
+			if (R[35] & 0x40) std::cout << INTERRUPTION().str() << "\n";
 	}
 	ssout << "[END OF SIMULATION]";
 }
@@ -427,12 +434,12 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		result << "[F] PC = " << getRformat(x, true) << " << 2 = " << getHexformat((R[32]-- << 2), 8);
 		break;
 	case (39):
-		result << "[SOFTWARE INTERRUPTION]\n" << "isr " << getRformat(x, false) << ", " 
+		result << "[SOFTWARE INTERRUPTION]\n" << "isr " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << ", " << getHexformat(IM16, 4) << "\n";
 		R[x] = R[37]; R[y] = R[36]; R[32] = IM16;
-		result << "[F] " << getRformat(x, true) << " = IPC >> 2 = " << getHexformat(R[37] << 2, 8) <<
-			", " << getRformat(y, true) << " = CR = " << getHexformat(R[36], 8) << ", PC = IM16 << 2 = "
-			<< getHexformat(R[32], 8);
+		result << "[F] " << getRformat(x, true) << " = IPC >> 2 = " << getHexformat(R[37], 8) <<
+			", " << getRformat(y, true) << " = CR = " << getHexformat(R[36], 8) << ", PC = "
+			<< getHexformat(R[32] << 2, 8);
 		break;
 	}
 	return result;
@@ -453,7 +460,8 @@ std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction, bool 
 				", PC = " << getHexformat(R[32], 8);
 			*okay = false;
 			return result;
-		} else {
+		}
+		else {
 			R[32] = 0xC; R[36] = IM26;
 			result << "int " << R[36] << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
 				", PC = " << getHexformat(R[32], 8);
