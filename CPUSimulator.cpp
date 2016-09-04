@@ -11,7 +11,7 @@
 */
 
 // array of memory: bitset of 32 pos
-std::bitset<32>* memory = NULL;
+std::bitset<32>* memory = nullptr;
 int memoryLength = 0;
 
 // registers
@@ -77,7 +77,7 @@ void InstoMem(std::string* fileInMemory) {
 		}
 	} while (pos != string::npos);
 	if (fileInMemory->length() > 0) fileInMemory->clear();
-	fileInMemory = NULL;
+	fileInMemory = nullptr;
 }
 
 // readFile and saves all hexvalues in memory array
@@ -119,11 +119,37 @@ int getOPType(std::bitset<6> OP, bool okay) {
 	}
 }
 
-std::stringstream INTERRUPTION() {
-	std::stringstream result;
+// treatment interruptions
+std::stringstream INTERRUPTIONS(uint_fast32_t IR) {
+	std::stringstream result; 
+	uint_fast8_t OP = (IR & 0xFC000000) >> 26; 
+	bool ZD = R[35] & 0x8; 
+
+	if (ZD) {
+		R[36] = 0x1;	
+		result = OPType_F(std::bitset<6>(39), std::bitset<32>(0x9C0013FE));
+	} else if (OP == 63) {
+		uint32_t IM26 = IR & 0x3FFFFFF;
+		if (IM26 == 0) {
+			R[32] = 0x0; R[36] = 0x0;
+			result << "int 0" << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
+				", PC = " << getHexformat(R[32], 8);
+			return result;
+		} else {
+			R[32] = 0xC; R[36] = IM26;
+			result << "int " << R[36] << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
+				", PC = " << getHexformat(R[32], 8);
+			return result;
+		}
+	}
 	R[37] = R[32];
-	if (R[35] & 0x8) { R[36] = 0x1;	result = OPType_F(std::bitset<6>(39), std::bitset<32>(0x9C0013FE)); }
 	return result;
+}
+
+bool Watchdog() {
+	if (memory[0x00008080].to_ulong()) {
+		return true;		
+	} return false;		
 }
 
 // executes instructions in memory
@@ -152,7 +178,11 @@ void ULA() {
 			case ('S'): ssout << OPType_S(OP, IR, &okay).str() << "\n";
 				std::cout << OPType_S(OP, IR, &okay).str() << "\n";
 			}
-			if (R[35] & 0x40) std::cout << INTERRUPTION().str() << "\n";
+			result = INTERRUPTIONS(IR.to_ulong());
+			if (result.str().length() > 0) { 
+				ssout << result.str() << "\n";
+				std::cout << result.str() << "\n";
+			}
 	}
 	ssout << "[END OF SIMULATION]";
 }
@@ -181,10 +211,10 @@ std::string getHexformat(uint64_t r, int nzeros) {
 std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint64_t z = (instruction.to_ulong() & 0x7C00) >> 10, x = (instruction.to_ulong() & 0x3E0) >> 5,
 		y = (instruction.to_ulong() & 0x1F); uint32_t e = (instruction.to_ulong() & 0x38000) >> 15;
-	if ((e & 0x4) >> 2) z = (uint64_t)((1 << 5) | z);
-	if ((e & 0x2) >> 1) x = (uint64_t)((1 << 5) | x);
-	if (e & 0x1) y = (uint64_t)((1 << 5) | y);
-	uint64_t temp = (uint64_t)0;
+	if ((e & 0x4) >> 2) z = static_cast<uint64_t>((1 << 5) | z);
+	if ((e & 0x2) >> 1) x = static_cast<uint64_t>((1 << 5) | x);
+	if (e & 0x1) y = static_cast<uint64_t>((1 << 5) | y);
+	auto temp = static_cast<uint64_t>(0);
 	std::stringstream result;
 	using namespace std;
 
@@ -193,7 +223,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		if (x == 0 && y == 0 && z == 0) return result;
 		result << "add " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << "\n";
-		temp = (uint64_t)R[x] + R[y];
+		temp = static_cast<uint64_t>(R[x]) + R[y];
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
@@ -203,7 +233,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	case (2):
 		result << "sub " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << "\n";
-		temp = (uint64_t)R[x] - R[y];
+		temp = static_cast<uint64_t>(R[x]) - R[y];
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
@@ -213,7 +243,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 	case (4):
 		result << "mul " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << "\n";
-		temp = (uint64_t)R[x] * R[y];
+		temp = static_cast<uint64_t>(R[x]) * R[y];
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
@@ -222,7 +252,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 			getHexformat(R[z], 8);
 		break;
 	case (6):
-		(R[y] == 0) ? (R[35] = (R[35] | 0x8)) : (R[35] = 0x0);
+		(R[y] == 0) ? (R[35] = R[35] | 0x8) : (R[35] = 0x0);
 		result << "div " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
 		if (!(R[35] & 0x8)) { R[z] = R[x] / R[y]; R[34] = R[x] % R[y]; }
 		else R[34] = 0x0;
@@ -239,7 +269,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (10):
 		result << "shl " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << dec << y << "\n";
-		temp = (uint64_t)R[x] << (uint64_t)(y + 1);
+		temp = static_cast<uint64_t>(R[x]) << static_cast<uint64_t>(y + 1);
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
@@ -248,7 +278,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (11):
 		result << "shr " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << dec << y << "\n";
-		temp = (uint64_t)((uint64_t)R[34] << 32 | (0xFFFFFFFF & (uint64_t)R[x]));
+		temp = static_cast<uint64_t>(static_cast<uint64_t>(R[34]) << 32 | (0xFFFFFFFF & static_cast<uint64_t>(R[x])));
 		temp = (temp >> (y + 1));
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
@@ -300,14 +330,14 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 	uint16_t IM16 = (instruction.to_ulong() & 0x3FFFC00) >> 10;
 	uint32_t x = (instruction.to_ulong() & 0x3E0) >> 5, y = (instruction.to_ulong() & 0x1F);
-	uint64_t temp = (uint64_t)0;
+	uint64_t temp = static_cast<uint64_t>(0);
 	std::stringstream result;
 	using namespace std;
 
 	switch (OP.to_ulong()) {
 	case (1):
 		result << "addi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
-		temp = (uint64_t)R[y] + IM16;
+		temp = static_cast<uint64_t>(R[y]) + IM16;
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = (temp & 0xFFFFFFFF);
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
@@ -316,7 +346,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (3):
 		result << "subi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
-		temp = (uint64_t)R[y] - IM16;
+		temp = static_cast<uint64_t>(R[y]) - IM16;
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
@@ -325,7 +355,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (5):
 		result << "muli " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << "\n";
-		temp = (uint64_t)R[y] * IM16;
+		temp = static_cast<uint64_t>(R[y]) * IM16;
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = temp & 0xFFFFFFFF;
 		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
@@ -371,7 +401,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		break;
 	case (20):
 		result << "ldw " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << "\n";
-		R[x] = ((uint64_t)memory[(R[y] + IM16)].to_ulong());
+		R[x] = static_cast<uint64_t>(memory[(R[y] + IM16)].to_ulong());
 		result << "[F] " << getRformat(x, true) << " = MEM[(" << getRformat(y, true) << " + " << getHexformat(IM16, 4)
 			<< ") << 2]" << " = " << getHexformat(R[x], 8);
 		break;
@@ -448,50 +478,38 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 // all operations of type S
 std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction, bool *okay) {
 	uint32_t IM26 = (instruction.to_ulong() & 0x3FFFFFF); bool sucess = false;
-	std::bitset<1> EQ = (R[35] & 0x1), LT = (R[35] & 0x2) >> 1, GT = (R[35] & 0x4) >> 2,
-		ZD = R[35] & 0x8 >> 3, IV = (R[35] & 0x20) >> 5;
+	bool EQ = R[35] & 0x1, LT = R[35] & 0x2, GT = R[35] & 0x4,
+		ZD = R[35] & 0x8, IV = R[35] & 0x20;
 	std::stringstream result;
 	using namespace std;
 
 	if (OP.to_ullong() == 63) {
-		if (IM26 == 0) {
-			R[32] = 0x0; R[36] = 0x0;
-			result << "int 0" << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
-				", PC = " << getHexformat(R[32], 8);
-			*okay = false;
-			return result;
-		}
-		else {
-			R[32] = 0xC; R[36] = IM26;
-			result << "int " << R[36] << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
-				", PC = " << getHexformat(R[32], 8);
-			return result;
-		}
+		INTERRUPTIONS(IR.to_ulong());
 	}
 
 	switch (OP.to_ulong()) {
 	case (26):
 		result << "bun "; sucess = true; break;
 	case (27):
-		result << "beq "; if (EQ[0]) sucess = true; break;
+		result << "beq "; if (EQ) sucess = true; break;
 	case (28):
-		result << "blt "; if (LT[0]) sucess = true; break;
+		result << "blt "; if (LT) sucess = true; break;
 	case (29):
-		result << "bgt "; if (GT[0]) sucess = true; break;
+		result << "bgt "; if (GT) sucess = true; break;
 	case (30):
-		result << "bne "; if (!EQ[0]) sucess = true; break;
+		result << "bne "; if (!EQ) sucess = true; break;
 	case (31):
-		result << "ble "; if (LT[0] || EQ[0]) sucess = true; break;
+		result << "ble "; if (LT || EQ) sucess = true; break;
 	case (32):
-		result << "bge "; if (GT[0] || EQ[0]) sucess = true; break;
+		result << "bge "; if (GT || EQ) sucess = true; break;
 	case (33):
-		result << "bzd "; if (ZD[0]) sucess = true; break;
+		result << "bzd "; if (ZD) sucess = true; break;
 	case (34):
-		result << "bnz "; if (!ZD[0]) sucess = true; break;
+		result << "bnz "; if (!ZD) sucess = true; break;
 	case (35):
-		result << "biv "; if (IV[0]) sucess = true; break;
+		result << "biv "; if (IV) sucess = true; break;
 	case (36):
-		result << "bni "; if (!IV[0]) sucess = true;
+		result << "bni "; if (!IV) sucess = true;
 	}
 
 	if (sucess) R[32] = IM26; else R[32]++;
