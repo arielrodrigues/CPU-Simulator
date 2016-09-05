@@ -146,6 +146,7 @@ std::stringstream INTERRUPTIONS(uint_fast32_t IR) {
 	return result;
 }
 
+// CPU still alive?
 bool Watchdog() {
 	if (memory[0x00008080].to_ulong()) {
 		return true;		
