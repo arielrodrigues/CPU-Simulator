@@ -17,8 +17,16 @@ int memoryLength = 0;
 // registers
 uint32_t R[64];
 std::bitset<32> IR;
-// FR: IE(6) IV(5) OV(4) ZD(3) GT(2) LT(1) EQ(0)
-//  R: IPC(37) CR(36) FR(35) ER(34) IR(33) PC(32)
+// R: IPC(37) CR(36) FR(35) ER(34) IR(33) PC(32)
+// FR [IE(6) IV(5) OV(4) ZD(3) GT(2) LT(1) EQ(0)]
+
+// interruptions stack
+struct context {
+	uint32_t FR, IPC;
+	uint_fast8_t priority = -1;
+};
+context INTStack[3];
+bool INTRoutine = false;
 
 // out file
 std::stringstream ssout;
@@ -29,6 +37,7 @@ std::string getHexformat(uint64_t, int);
 std::stringstream OPType_U(std::bitset<6>, std::bitset<32>);
 std::stringstream OPType_F(std::bitset<6>, std::bitset<32>);
 std::stringstream OPType_S(std::bitset<6>, std::bitset<32>, bool*);
+std::stringstream INTERRUPTIONS(uint_fast32_t, uint_fast8_t);
 void WriteToFile(std::string);
 
 // main :)
@@ -119,38 +128,47 @@ int getOPType(std::bitset<6> OP, bool okay) {
 	}
 }
 
-// treatment interruptions
-std::stringstream INTERRUPTIONS(uint_fast32_t IR) {
-	std::stringstream result; 
-	uint_fast8_t OP = (IR & 0xFC000000) >> 26; 
-	bool ZD = R[35] & 0x8; 
+// save CPU context before get a level down
+void saveContext(uint32_t FR, uint32_t IPC, uint_fast8_t priority) {
+	uint_fast8_t i = 0;
+	for (; i < 3, INTStack[i].IPC != 0x0; i++);
+	INTStack[i].FR = FR;
+	INTStack[i].IPC = IPC;
+	INTStack[i].IPC = IPC;
+	INTStack[i].priority = priority;
+	if (!INTRoutine) INTRoutine = true;
 
-	if (ZD) {
-		R[36] = 0x1;	
-		result = OPType_F(std::bitset<6>(39), std::bitset<32>(0x9C0013FE));
-	} else if (OP == 63) {
-		uint32_t IM26 = IR & 0x3FFFFFF;
-		if (IM26 == 0) {
-			R[32] = 0x0; R[36] = 0x0;
-			result << "int 0" << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
-				", PC = " << getHexformat(R[32], 8);
-			return result;
-		} else {
-			R[32] = 0xC; R[36] = IM26;
-			result << "int " << R[36] << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
-				", PC = " << getHexformat(R[32], 8);
-			return result;
-		}
-	}
+	// Odernando pilha por prioridade, menor prioridade primeiro
+	for (i = 0; i < 3; i++)
+		for (int j = i + 1; j < 3, INTStack[j].IPC != 0x0; j++)
+			if (INTStack[j].priority < INTStack[i].priority) {
+				context aux;
+				aux.FR = INTStack[i].FR; aux.IPC = INTStack[i].IPC; aux.priority = INTStack[i].priority;
+				INTStack[i] = INTStack[j]; INTStack[j] = aux;
+			}
+}
+
+int returnContext() {
+	uint_fast8_t i = 0;
+	for (; i < 3, INTStack[i].IPC != 0x0; i++);
+	R[35] = INTStack[i].FR;
+	if (i == 0) INTRoutine = false;
+	return INTStack[i].IPC;
+}
+
+void iManager(uint32_t IR, uint_fast8_t icode, int_fast8_t priority) {
 	R[37] = R[32];
-	return result;
+	saveContext(R[35], R[37], priority);
+	std::stringstream result = INTERRUPTIONS(IR, icode);
+	std::cout << result.str() << '\n';
+	ssout << result.str() << '\n';
 }
 
 // CPU still alive?
 bool Watchdog() {
 	if (memory[0x00008080].to_ulong()) {
-		return true;		
-	} return false;		
+		return true;
+	} return false;
 }
 
 // executes instructions in memory
@@ -178,11 +196,6 @@ void ULA() {
 				break;
 			case ('S'): ssout << OPType_S(OP, IR, &okay).str() << "\n";
 				std::cout << OPType_S(OP, IR, &okay).str() << "\n";
-			}
-			result = INTERRUPTIONS(IR.to_ulong());
-			if (result.str().length() > 0) { 
-				ssout << result.str() << "\n";
-				std::cout << result.str() << "\n";
 			}
 	}
 	ssout << "[END OF SIMULATION]";
@@ -256,7 +269,7 @@ std::stringstream OPType_U(std::bitset<6> OP, std::bitset<32> instruction) {
 		(R[y] == 0) ? (R[35] = R[35] | 0x8) : (R[35] = 0x0);
 		result << "div " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << getRformat(y, false) << "\n";
 		if (!(R[35] & 0x8)) { R[z] = R[x] / R[y]; R[34] = R[x] % R[y]; }
-		else R[34] = 0x0;
+		else { R[34] = 0x0; iManager(IR.to_ulong(), 2, -1); }
 		result << "[U] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " <<
 			getRformat(z, true) << " = " << getRformat(x, true) << " / " << getRformat(y, true) << " = "
 			<< getHexformat(R[z], 8);
@@ -463,6 +476,7 @@ std::stringstream OPType_F(std::bitset<6> OP, std::bitset<32> instruction) {
 		result << "ret " << getRformat(x, false) << "\n";
 		R[32] = R[x];
 		result << "[F] PC = " << getRformat(x, true) << " << 2 = " << getHexformat((R[32]-- << 2), 8);
+		if (INTRoutine) returnContext();
 		break;
 	case (39):
 		result << "[SOFTWARE INTERRUPTION]\n" << "isr " << getRformat(x, false) << ", "
@@ -485,7 +499,9 @@ std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction, bool 
 	using namespace std;
 
 	if (OP.to_ullong() == 63) {
-		INTERRUPTIONS(IR.to_ulong());
+		uint_fast8_t icode, priority;
+		(IM26 == 0) ? icode = 0, priority = 1 : icode = 1, priority = 2;
+		iManager(instruction.to_ulong(), icode, priority);
 	}
 
 	switch (OP.to_ulong()) {
@@ -518,6 +534,28 @@ std::stringstream OPType_S(std::bitset<6> OP, std::bitset<32> instruction, bool 
 	return result;
 }
 
+// treatment interruptions
+std::stringstream INTERRUPTIONS(uint_fast32_t IR, uint_fast8_t icode) {
+	std::stringstream result;
+	uint_fast8_t OP = (IR & 0xFC000000) >> 26;
+	uint32_t IM26 = (IR & 0x3FFFFFF);
+
+	switch (icode) {
+	case (0x0):
+		R[32] = 0x0; R[36] = 0x0;
+		result << "int 0" << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
+			", PC = " << getHexformat(R[32], 8); break;
+	case (0x1):
+		R[32] = 0xC; R[36] = IM26;
+		result << "int " << R[36] << "\n" << "[S] CR = " << getHexformat(R[36], 8) <<
+			", PC = " << getHexformat(R[32], 8); break;
+	case (0x2):
+		result = OPType_F(std::bitset<6>(39), std::bitset<32>(0x9C0013FE));
+		R[36] = 0x1; break;
+	}
+	return result;
+}
+
 // write out file
 void WriteToFile(std::string outFileName) {
 	using namespace std;
@@ -530,4 +568,4 @@ void WriteToFile(std::string outFileName) {
 		ssout.clear();
 	}
 	file.close();
-}
+}	
