@@ -22,7 +22,7 @@ int memoryLength = 0;
 // registers
 uint32_t R[64];
 uint32_t IR;
-uint32_t TIMER = 0x0;
+int32_t TIMER = -1;
 // R: IPC(37) CR(36) FR(35) ER(34) IR(33) PC(32)
 // FR [IE(6) IV(5) OV(4) ZD(3) GT(2) LT(1) EQ(0)]
 
@@ -158,28 +158,31 @@ void returnContext() {
 	if (i <= 0) INTRoutine = false;
 }
 
-void INTManager() {
+void INTManager(bool *okay) {
 	std::stringstream result;
 	flagIsUP = false;
 	R[37] = f_IPC;
 	uint_fast32_t IR = memory[3];
-	uint_fast8_t OP = (IR & 0xFC000000) >> 26;
+	uint_fast8_t OP;
 	saveContext(R[35], R[37], f_Priority);
 
 	switch (f_INTCode) {
-	case(0): SSOUT << "[HARDWARE INTERRUPTION]\n"; break;
+	case(0): SSOUT << "[HARDWARE INTERRUPTION]\n"; IR = memory[1]; break;
 	case(1): SSOUT << "[SOFTWARE INTERRUPTION]\n"; break;
-	case(3): SSOUT << "[INVALID INSTRUCTION @ " <<
-		getHexformat(R[32] << 2, 8) << "]\n[SOFTWARE INTERRUPTION]\n"; break;
+	case(3): SSOUT << "[INVALID INSTRUCTION @ " << getHexformat(R[32] << 2, 8) <<
+		"]\n[SOFTWARE INTERRUPTION]\n"; break;
 	}
-	OPType_F(OP, IR);
+	OP = (IR & 0xFC000000) >> 26;
+	if (getOPType(OP, okay) == 'S') OPType_S(OP, IR, okay);
+	else OPType_F(OP, IR);
 }
 
 // CPU still alive?
 void Watchdog() {
-	bool enable = (memory[0x8080 >> 2] & 0x80000000) >> 31;
-	if (enable && TIMER != 0x0) TIMER--;
+	bool enable = R[35] & 0x40;
+	if (enable && TIMER > 0x0) TIMER--;
 	if (TIMER == 0x0 && enable) {
+		TIMER = -1;
 		R[36] = 0xE1AC04DA;
 		memory[0x8080 >> 2] = memory[0x8080 >> 2] & 0x07FFFFFFF;
 		INT_flag = std::make_tuple(true, 0, 1, R[32] + 1);
@@ -201,8 +204,8 @@ void ULA() {
 			default: break;
 		}
 		Watchdog();
-		if (flagIsUP) INTManager();
-//		std::cout << "\n\n\n\n" << SSOUT.str();
+		if (flagIsUP) INTManager(&okay);
+		system("cls"); std::cout << SSOUT.str();
 	}
 	if (TERMINAL.tellp() > 0) SSOUT << "[TERMINAL]\n" << TERMINAL.str() << '\n';
 	SSOUT << "[END OF SIMULATION]";
@@ -443,8 +446,8 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 	case (22):
 		result << "stw " << getRformat(x, false) << ", " << getHexformat(IM16, 4) << ", " << getRformat(y, false) << '\n';
 		memory[(R[x] + IM16)] = R[y];
-		if (R[x] == 0x888B) TERMINAL << static_cast<char>(R[y] & 0x0000001F);
-		if (R[x] == 0x8080) TIMER = (R[y] & 0x3CFFFFFF);
+		if ((R[x] + IM16) == 0x888B) TERMINAL << static_cast<char>(R[y] & 0x1F);
+		if ((R[x] + IM16) << 2 == 0x8080) TIMER = (R[y] & 0x3CFFFFFF);
 		result << "[F] MEM[(" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << ") << 2]" << " = " << getRformat(y, true)
 			<< " = " << getHexformat(R[y], 8);
 		break;
