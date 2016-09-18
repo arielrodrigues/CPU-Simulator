@@ -4,6 +4,7 @@
 #include <string>
 #include <iomanip>
 #include <tuple>
+#include <math.h>
 
 #define flagIsUP std::get<0>(INT_flag)
 #define f_INTCode std::get<1>(INT_flag)
@@ -12,7 +13,7 @@
 
 /*
 * ARQ-2016.1
-* arielferreirarodrigues_201310015491_poxim1.cpp
+* arielrodrigues_201310015491_poxim2.cpp
 */
 
 // array of memory: bitset of 32 pos
@@ -35,6 +36,14 @@ context INTStack[3];
 bool INTRoutine = false;
 std::tuple<bool, int_fast8_t, int_fast8_t, int_fast32_t> INT_flag(false, 0, 0, 0);
 
+// FPU
+struct fpu {
+	uint32_t X, Y, Z, controle;
+	int32_t ciclos = -1;
+	bool status;
+};
+fpu Fpu;
+
 // out file
 std::stringstream SSOUT, TERMINAL;
 
@@ -44,7 +53,9 @@ std::string getHexformat(uint64_t, int);
 void OPType_U(uint_fast8_t, uint32_t);
 void OPType_F(uint_fast8_t, uint32_t);
 void OPType_S(uint_fast8_t, uint32_t, bool*);
-void INTManager();
+void INTManager(bool *okay);
+void FPUManager();
+void FPU();
 void WriteToFile(std::string);
 
 // main :)
@@ -118,7 +129,7 @@ void ReadFile(std::string fileName) {
 int getOPType(uint_fast8_t OP, bool okay) {
 	// exceptions
 	if ((OP == 11) || (OP == 25)) return 'U';
-	if (((OP == 20) || (OP == 22)) || ((OP > 36) && (OP < 40))) return 'F';
+	if (((OP == 20) || (OP == 22)) || ((OP > 36) && (OP < 41))) return 'F';
 	if (OP == 63) return 'S';
 
 	if (OP < 26) {
@@ -167,8 +178,9 @@ void INTManager(bool *okay) {
 	saveContext(R[35], R[37], f_Priority);
 
 	switch (f_INTCode) {
-	case(0): SSOUT << "[HARDWARE INTERRUPTION]\n"; IR = memory[1]; break;
+	case(0): SSOUT << "[HARDWARE INTERRUPTION 1]\n"; IR = memory[1]; break;
 	case(1): SSOUT << "[SOFTWARE INTERRUPTION]\n"; break;
+	case(2): SSOUT << "[HARDWARE INTERRUPTION 2]\n"; IR = memory[2]; break;
 	case(3): SSOUT << "[INVALID INSTRUCTION @ " << getHexformat(R[32] << 2, 8) <<
 		"]\n[SOFTWARE INTERRUPTION]\n"; break;
 	}
@@ -185,7 +197,16 @@ void Watchdog() {
 		TIMER = -1;
 		R[36] = 0xE1AC04DA;
 		memory[0x8080 >> 2] = memory[0x8080 >> 2] & 0x07FFFFFFF;
-		INT_flag = std::make_tuple(true, 0, 1, R[32] + 1);
+		INT_flag = std::make_tuple(true, 0, 1, R[32]);
+	}
+}
+
+// float unity manager
+void FPUManager() {
+	if (Fpu.ciclos > 0)	--Fpu.ciclos;
+	else if (Fpu.ciclos == 0) {
+		Fpu.ciclos = -1;
+		INT_flag = std::make_tuple(true, 2, 1, R[32]);
 	}
 }
 
@@ -194,8 +215,8 @@ void ULA() {
 	auto okay = true; 
 
 	SSOUT << "[START OF SIMULATION]\n";
-	for (R[32] = 0; okay; ) {
-		IR = memory[R[32]]; R[33] = IR; R[0] = 0;
+	for (R[32] = 0; okay; R[0] = 0) {
+		IR = memory[R[32]]; R[33] = IR;
 		auto OP = (IR & 0xFC000000) >> 26; 
 		switch (getOPType(OP, okay)) {
 			case ('U'): OPType_U(OP, IR); R[32]++; break;
@@ -204,8 +225,9 @@ void ULA() {
 			default: break;
 		}
 		Watchdog();
+		FPUManager();
 		if (flagIsUP) INTManager(&okay);
-		system("cls"); std::cout << SSOUT.str();
+		WriteToFile("out.txt");
 	}
 	if (TERMINAL.tellp() > 0) SSOUT << "[TERMINAL]\n" << TERMINAL.str() << '\n';
 	SSOUT << "[END OF SIMULATION]";
@@ -427,13 +449,20 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 		break;
 	case (20):
 		result << "ldw " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << '\n';
-		R[x] = static_cast<uint64_t>(memory[(R[y] + IM16)]);
+ 		switch ((R[y] + IM16) << 2) {
+		case (0x888B): R[x] = TERMINAL.str()[TERMINAL.end]; break;
+		case (0x8800): R[x] = Fpu.X; break;
+		case (0x8804): R[x] = Fpu.Y; break;
+		case (0x8808): R[x] = Fpu.Z; break;
+		case (0x880C): R[x] = Fpu.controle; break;
+		default: R[x] = static_cast<uint64_t>(memory[(R[y] + IM16)]);
+		}
 		result << "[F] " << getRformat(x, true) << " = MEM[(" << getRformat(y, true) << " + " << getHexformat(IM16, 4)
 			<< ") << 2]" << " = " << getHexformat(R[x], 8);
 		break;
 	case (21):
 		result << "ldb " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << '\n';
-		R[x] = memory[(R[y] + IM16) / 4];
+		R[x] = memory[(R[y] + IM16) >> 2];
 		switch ((R[y] + IM16) % 4) {
 		case 3: R[x] = (R[x] & 0x000000FF);	break;
 		case 2: R[x] = (R[x] & 0x0000FF00) >> 8; break;
@@ -446,8 +475,14 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 	case (22):
 		result << "stw " << getRformat(x, false) << ", " << getHexformat(IM16, 4) << ", " << getRformat(y, false) << '\n';
 		memory[(R[x] + IM16)] = R[y];
-		if ((R[x] + IM16) == 0x888B) TERMINAL << static_cast<char>(R[y] & 0x1F);
-		if ((R[x] + IM16) << 2 == 0x8080) TIMER = (R[y] & 0x3CFFFFFF);
+		switch ((R[x] + IM16) << 2) {
+		case (0x8800): Fpu.X = R[y]; break;
+		case (0x8804): Fpu.Y = R[y]; break;
+		case (0x8808): Fpu.Z = R[y]; break;
+		case (0x880C): Fpu.controle = R[y]; FPU(); break;
+		case (0x888B): TERMINAL << static_cast<char>(R[y] & 0x1F); break;
+		case (0x8080): TIMER = (R[y] & 0x2CFFFFFF) + 1; break;
+		}
 		result << "[F] MEM[(" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << ") << 2]" << " = " << getRformat(y, true)
 			<< " = " << getHexformat(R[y], 8);
 		break;
@@ -493,6 +528,12 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 		result << "[F] " << getRformat(x, true) << " = IPC >> 2 = " << getHexformat(R[37], 8) <<
 			", " << getRformat(y, true) << " = CR = " << getHexformat(R[36], 8) << ", PC = "
 			<< getHexformat(R[32] << 2, 8);
+		break;
+	case (40):
+		result << "reti " << getRformat(x, false) << '\n';
+		R[32] = R[x];
+		result << "[F] PC = " << getRformat(x, true) << " << 2 = " << getHexformat(R[32]-- << 2, 8);
+		if (INTRoutine) returnContext();
 	}
 	if (result.tellp() > 0)  SSOUT << result.str() << '\n';
 }
@@ -543,6 +584,39 @@ void OPType_S(uint_fast8_t OP, uint32_t instruction, bool *okay) {
 	if (sucess) R[32] = IM26; else R[32]++;
 	result << getHexformat(IM26, 8) << '\n' << "[S] PC = " << getHexformat(R[32] << 2, 8);
 	if (result.tellp() > 0)  SSOUT << result.str() << '\n';
+}
+
+void FPU() {
+	R[36] = 0x01EEE754;
+	int32_t exp_x = (Fpu.X & 0x7F800000) >> 23, exp_y = (Fpu.Y & 0x7F800000) >> 23;
+	uint32_t ciclos = abs(exp_x - exp_y) + 1;
+	uint_fast8_t OP = Fpu.controle & 0xFFFFFF1F;
+	float _X = static_cast<float>(Fpu.Z), _Y = static_cast<float>(Fpu.Y), 
+		_Z = static_cast<float>(Fpu.Z);
+	Fpu.status = true;
+
+	switch(OP) {
+	case (0): return;
+	case (1): _Z = _X + _Y; break;
+	case (2): _Z = _X - _Y; break;
+	case (3): _Z = _X * _Y; break;
+	case (4): if (_Y == 0) Fpu.status = false;
+		else _Z = _X / _Y; break;
+	case (5): _X = _Z; break;
+	case (6): _Y = _Z; break;
+	case (7): ceil(_Z); break;
+	case (8): floor(_Z); break;
+	case (9): round(_Z); break;
+	default: 
+		Fpu.status = false; Fpu.ciclos = 1;
+		Fpu.controle = 0x20;
+		return;
+	}
+	Fpu.Z = static_cast<uint32_t>(_Z); 
+	Fpu.X = static_cast<uint32_t>(_X);
+	Fpu.Y = static_cast<uint32_t>(_Y);
+	Fpu.controle = Fpu.status? 0x0: 0x20;
+	if (OP < 5) Fpu.ciclos = ++ciclos; else Fpu.ciclos = 2;
 }
 
 // write out file
