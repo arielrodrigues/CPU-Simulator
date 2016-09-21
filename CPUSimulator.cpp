@@ -232,7 +232,7 @@ void ULA() {
 		FPUManager();
 		if (flagIsUP) 
 			if (f_Priority < 0 || IE) INTManager(&okay);
-		//WriteToFile("out.txt"); //LEMBRE DE APAGAR ISSO PELO AMOR DE DEUS
+		WriteToFile("out.txt"); //LEMBRE DE APAGAR ISSO PELO AMOR DE DEUS
 	}
 	if (TERMINAL.tellp() > 0) SSOUT << "[TERMINAL]\n" << TERMINAL.str() << '\n';
 	SSOUT << "[END OF SIMULATION]";
@@ -417,7 +417,7 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 	case (7):
 		(IM16 != 0) ? R[35] = R[35] & 0xF7 : R[35] = R[35] | 0x8;
 		result << "divi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << '\n';
-		if (R[35] & 0x7) { R[x] = R[y] / IM16; R[34] = R[y] % IM16; }
+		if (R[35] & 0x7) { R[34] = R[y] % IM16; R[x] = R[y] / IM16; }
 		else { R[34] = 0x0; R[36] = 0x1; INT_flag = make_tuple(true, 1, -1, R[32] + 1); }
 		result << "[F] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " << getRformat(x, true)
 			<< " = " << getRformat(y, true) << " / " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
@@ -467,12 +467,25 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 		break;
 	case (21):
 		result << "ldb " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << '\n';
-		R[x] = memory[(R[y] + IM16) >> 2];
-		switch ((R[y] + IM16) % 4) {
-		case 3: R[x] = (R[x] & 0x000000FF);	break;
-		case 2: R[x] = (R[x] & 0x0000FF00) >> 8; break;
-		case 1:	R[x] = (R[x] & 0x00FF0000) >> 16; break;
-		default: R[x] = (R[x] & 0xFF000000) >> 24;
+		switch ((R[y] + IM16) >> 2) {
+			case (0x8800): R[x] = Fpu.X; break;
+			case (0x8804): R[x] = Fpu.Y; break;
+			case (0x8808): R[x] = Fpu.Z; break;
+			case (0x880C): R[x] = Fpu.controle; break;
+			case (0x8888):
+				switch ((R[y] + IM16) % 4) {
+					case 3: R[x] = (memory[0x888B] & 0x000000FF); break;
+					case 2: R[x] = (memory[0x888B] & 0x0000FF00) >> 8; break;
+					case 1: R[x] = (memory[0x888B] & 0x00FF0000) >> 16; break;
+					case 0: R[x] = (memory[0x888B] & 0xFF000000) >> 24; 
+				} break;
+			default:
+				switch ((R[y] + IM16) % 4) {
+					case 3: R[x] = (memory[(R[y] + IM16) >> 2] & 0x000000FF);	break;
+					case 2: R[x] = (memory[(R[y] + IM16) >> 2] & 0x0000FF00) >> 8; break;
+					case 1:	R[x] = (memory[(R[y] + IM16) >> 2] & 0x00FF0000) >> 16; break;
+					case 0: R[x] = (memory[(R[y] + IM16) >> 2] & 0xFF000000) >> 24;
+				} break;
 		}
 		result << "[F] " << getRformat(x, true) << " = MEM[" << getRformat(y, true) << " + " << getHexformat(IM16, 4) << "] = "
 			<< getHexformat(R[x], 2);
@@ -493,24 +506,30 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 		break;
 	case (23):
 		result << "stb " << getRformat(x, false) << ", " << getHexformat(IM16, 4) << ", " << getRformat(y, false) << '\n';
-		switch ((R[x] + IM16) % 4) {
-		case 3:
-			memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0xFFFFFF00) | R[y];
-			temp = memory[(R[x] + IM16) >> 2] & 0x000000FF;
-			break;
-		case 2:
-			memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0xFFFF00FF) | (R[y] << 8);
-			temp = (memory[(R[x] + IM16) >> 2] & 0x0000FF00) >> 8;
-			break;
-		case 1:
-			memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0xFF00FFFF) | (R[y] << 16);
-			temp = (memory[(R[x] + IM16) >> 2] & 0x00FF0000) >> 16;
-			break;
+		switch ((R[x] + IM16) << 2) {
+		case (0x8888): if (((R[x] + IM16) % 4) == 3) {
+				memory[0x888B] = (memory[0x888B] & 0xFFFFFF00) | (R[y] & 0x000000FF);
+				TERMINAL << static_cast<char>(memory[0x888B] & 0x000000FF); } break;
+		case (0x8800): Fpu.X = R[y]; break;
+		case (0x8804): Fpu.Y = R[y]; break;
+		case (0x8808): Fpu.Z = R[y]; break;
+		case (0x880C): Fpu.controle = R[y]; FPU(); break;
 		default:
-			memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0x00FFFFFF) | (R[y] << 24);
-			temp = (memory[(R[x] + IM16) >> 2] & 0xFF000000) >> 24;
+			switch ((R[x] + IM16) % 4) {
+			case 3:
+				memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0xFFFFFF00) | R[y];
+				temp = memory[(R[x] + IM16) >> 2] & 0x000000FF; break;
+			case 2:
+				memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0xFFFF00FF) | (R[y] << 8);
+				temp = (memory[(R[x] + IM16) >> 2] & 0x0000FF00) >> 8; break;
+			case 1:
+				memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0xFF00FFFF) | (R[y] << 16);
+				temp = (memory[(R[x] + IM16) >> 2] & 0x00FF0000) >> 16; break;
+			default:
+				memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0x00FFFFFF) | (R[y] << 24);
+				temp = (memory[(R[x] + IM16) >> 2] & 0xFF000000) >> 24;
+			} break;
 		}
-		if (R[x] == 0x888B) TERMINAL << static_cast<char>(temp);
 		result << "[F] MEM[" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << "] = " << getRformat(y, true)
 			<< " = " << getHexformat(temp, 2);
 		break;
