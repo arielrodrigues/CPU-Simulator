@@ -232,7 +232,7 @@ void ULA() {
 		FPUManager();
 		if (flagIsUP) 
 			if (f_Priority < 0 || IE) INTManager(&okay);
-		WriteToFile("out.txt"); //LEMBRE DE APAGAR ISSO PELO AMOR DE DEUS
+		//WriteToFile("out.txt"); //LEMBRE DE APAGAR ISSO PELO AMOR DE DEUS
 	}
 	if (TERMINAL.tellp() > 0) SSOUT << "[TERMINAL]\n" << TERMINAL.str() << '\n';
 	SSOUT << "[END OF SIMULATION]";
