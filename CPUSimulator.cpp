@@ -53,6 +53,7 @@ fpu Fpu;
 
 // out file
 std::stringstream SSOUT, TERMINAL;
+uint32_t bufferTerminal;
 
 void ReadFile(std::string);
 void saveContext(uint32_t FR);
@@ -480,7 +481,7 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 	case (20):
 		result << "ldw " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << getHexformat(IM16, 4) << '\n';
  		switch ((R[y] + IM16) << 2) {
-		case (0x888B): R[x] = TERMINAL.str()[TERMINAL.end]; break;
+		case (0x888B): R[x] = bufferTerminal; break;
 		case (0x8800): R[x] = Fpu.X; break;
 		case (0x8804): R[x] = Fpu.Y; break;
 		case (0x8808): R[x] = Fpu.Z; break;
@@ -522,8 +523,8 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 			case (0x8804): Fpu.Yf = static_cast<float>(R[y]); break;
 			case (0x8808): Fpu.Zf = static_cast<float>(R[y]); break;
 			case (0x880C): Fpu.controle = R[y]; FPU(); break;
-			case (0x888B): TERMINAL << static_cast<char>(R[y] & 0x1F); break;
-			case (0x8888): TERMINAL << static_cast<char>(R[y] & 0x1F); break;
+			case (0x888B): bufferTerminal = R[y] & 0x1F;
+						   TERMINAL << static_cast<char>(bufferTerminal); break;
 			case (0x8080): watchdog = R[y] & 0x80000000; TIMER = R[y] & 0x7FFFFFFF; break;
 			default: memory[(R[x] + IM16)] = R[y];
 		}
@@ -538,14 +539,9 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 		case (0x8808): Fpu.Z = R[y]; break;
 		case (0x880C): Fpu.controle = R[y]; FPU(); break;
 		case (0x888B): if ((R[x] + IM16) % 4 == 3) {
-			char c; TERMINAL >> c;
-			uint32_t aux = (static_cast<uint32_t>(c) & 0xFFFFFF00) | (R[y] & 0x000000FF);
-			TERMINAL << static_cast<char>(aux & 0x000000FF);
-		} break;
-		case (0x8888): if ((R[x] + IM16) % 4 == 3) {
-			char c; TERMINAL >> c;
-			uint32_t aux = (static_cast<uint32_t>(c) & 0xFFFFFF00) | (R[y] & 0x000000FF);
-			TERMINAL << static_cast<char>(aux & 0x000000FF);
+			temp = (bufferTerminal & 0xFFFFFF00) | (R[y] & 0x000000FF);
+			temp = temp & 0x000000FF;
+			TERMINAL << static_cast<char>(temp);
 		} break;
 		default:
 			switch ((R[x] + IM16) % 4) {
