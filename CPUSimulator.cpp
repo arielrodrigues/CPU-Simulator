@@ -7,6 +7,7 @@
 #include <math.h>
 
 #define getFlag(x) std::get<0>(x)
+#define getiCode(x) std::get<1>(x)
 #define getPriority(x) std::get<2>(x)
 #define flagIsUP std::get<0>(INT_flag)
 #define f_INTCode std::get<1>(INT_flag)
@@ -17,6 +18,10 @@
 /*
 * ARQ-2016.1
 * arielrodrigues_201310015491_poxim2.cpp
+* 
+* Registers:
+* R: IPC(37) CR(36) FR(35) ER(34) IR(33) PC(32)
+* FR [IE(6) IV(5) OV(4) ZD(3) GT(2) LT(1) EQ(0)]
 */
 
 // array of memory: bitset of 32 pos
@@ -25,9 +30,7 @@ int memoryLength = 0;
 
 // registers
 uint32_t R[64];
-int32_t TIMER = -1;
-// R: IPC(37) CR(36) FR(35) ER(34) IR(33) PC(32)
-// FR [IE(6) IV(5) OV(4) ZD(3) GT(2) LT(1) EQ(0)]
+int32_t TIMER = -1; bool watchdog;
 
 // flag, int code, priority, cr
 std::tuple<bool, uint_fast8_t, int_fast8_t, uint_fast32_t> INT_flag(false, 0, 0, 0);
@@ -44,7 +47,7 @@ bool INTRoutine = false;
 struct fpu {
 	float Xf, Yf, Zf;
 	uint32_t X, Y, Z, controle;
-	int32_t ciclos = -1;
+	uint32_t ciclos = 0;
 };
 fpu Fpu;
 
@@ -60,6 +63,7 @@ void OPType_S(uint_fast8_t, uint32_t, bool*);
 void INTManager(bool *okay);
 void FPUManager();
 void FPU();
+void Watchdog();
 void WriteToFile(std::string);
 std::string getHexformat(uint64_t, int);
 
@@ -149,6 +153,7 @@ int getOPType(uint_fast8_t OP, bool okay) {
 	}
 }
 
+// sort contexts in stack by priority
 void sortContext() {
 	for (auto i = 0; i < 3; i++)
 		for (auto j = i + 1; j < 3; j++)
@@ -162,7 +167,8 @@ void sortContext() {
 // save CPU context before get a level down
 void saveContext(uint32_t FR) {
 	uint_fast8_t i = 0;
-	for (; i < 3, std::get<0>(INTStack[i].INT_flag); i++);
+	for (; i < 3, std::get<0>(INTStack[i].INT_flag); i++)
+		if (getiCode(INTStack[i].INT_flag) == getiCode(INT_flag)) break;
 	INTStack[i].FR = FR; INTStack[i].INT_flag = INT_flag; INTStack[i].IPC = R[37];
 	if (!INTRoutine) INTRoutine = true; 
 	else sortContext();
@@ -181,6 +187,7 @@ context returnContext() {
 	return aux;
 }
 
+// interruptions manager
 void INTManager(bool *okay) {
 	std::stringstream result; uint_fast8_t OP;
 	uint_fast32_t IR = memory[3];
@@ -195,6 +202,7 @@ void INTManager(bool *okay) {
 			"]\n[SOFTWARE INTERRUPTION]\n"; break;
 	}
 	OP = (IR & 0xFC000000) >> 26;
+	Watchdog();
 	switch (getOPType(OP, okay)) {
 		case 'U': OPType_U(OP, IR); break;
 		case 'S': OPType_S(OP, IR, okay); break;
@@ -205,14 +213,15 @@ void INTManager(bool *okay) {
 	}
 }
 
-// CPU still alive?
-void Watchdog() {	
-	if (TIMER > 0x0) TIMER--;
-	if (TIMER == 0x0 && IE) {
-		TIMER = -1; R[37] = R[32];
-		memory[0x8080 >> 2] = memory[0x8080 >> 2] & 0x7FFFFFFF;
-		INT_flag = std::make_tuple(true, 0, 0, 0xE1AC04DA);
-		saveContext(R[35]);
+// checks if CPU still alive?
+void Watchdog() {
+	if (watchdog) {
+		if (TIMER > 0x0) TIMER--;
+		else if (TIMER == 0x0 && IE) {
+			watchdog = false; R[37] = R[32];
+			INT_flag = std::make_tuple(true, 0, 0, 0xE1AC04DA);
+			saveContext(R[35]);
+		} 
 	}
 }
 
@@ -240,23 +249,20 @@ void ULA() {
 			case ('S'): OPType_S(OP, R[33], &okay); break;
 			default: break;
 		}
-		Watchdog();
-		FPUManager();
-		if (flagIsUP) 
+		Watchdog(); FPUManager();
+		if (flagIsUP)
 			if (f_Priority <= 0 || IE) INTManager(&okay);
-		//WriteToFile("out.txt"); //LEMBRE DE APAGAR ISSO PELO AMOR DE DEUS
 	}
 	if (TERMINAL.tellp() > 0) SSOUT << "[TERMINAL]\n" << TERMINAL.str() << '\n';
 	SSOUT << "[END OF SIMULATION]";
 }
 
+// return register name indexing by number
 std::string getRformat(uint64_t n, bool uppercase) {
 	using namespace std;
-	if ((n < 32) || (n > 37)) {
-		if (uppercase) return ('R' + to_string(n));
-		else return ('r' + to_string(n));
-	}
-	else switch (n) {
+	if ((n < 32) || (n > 37)) 
+		return (uppercase) ? ('R' + to_string(n)): ('r' + to_string(n));
+	switch (n) {
 		case (32): return (uppercase) ? "PC" : "pc";
 		case (33): return (uppercase) ? "IR" : "ir";
 		case (34): return (uppercase) ? "ER" : "er";
@@ -266,6 +272,7 @@ std::string getRformat(uint64_t n, bool uppercase) {
 	}
 }
 
+// return string in hex format
 std::string getHexformat(uint64_t r, int nzeros) {
 	std::stringstream ssformated;
 	ssformated << "0x" << std::hex << std::setfill('0') << std::uppercase << std::setw(nzeros) << r;
@@ -288,20 +295,20 @@ void OPType_U(uint_fast8_t OP, uint32_t instruction) {
 		if (x == 0 && y == 0 && z == 0) return;
 		result << "add " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << '\n';
-		temp = static_cast<uint64_t>(R[x]) + R[y];
-		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
+		temp = static_cast<uint64_t>(R[x] + R[y]);
 		R[z] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp >= 0xFFFFFFFF) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp > 0xFFFFFFFF) R[34] = (temp & 0xFFFFFFFF00000000) >> 32;		
 		result << "[U] FR = " << getHexformat(R[35], 8) << ", " << getRformat(z, true) << " = " << getRformat(x, true)
 			<< " + " << getRformat(y, true) << " = " << getHexformat(R[z], 8);
 		break;
 	case (2):
 		result << "sub " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << '\n';
-		temp = static_cast<uint64_t>(R[x]) - R[y];
-		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
+		temp = static_cast<uint64_t>(R[x] - R[y]);
 		R[z] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp >= 0xFFFFFFFF) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp > 0xFFFFFFFF) R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		result << "[U] FR = " << getHexformat(R[35], 8) << ", " << getRformat(z, true) << " = " << getRformat(x, true)
 			<< " - " << getRformat(y, true) << " = " << getHexformat(R[z], 8);
 		break;
@@ -309,9 +316,9 @@ void OPType_U(uint_fast8_t OP, uint32_t instruction) {
 		result << "mul " << getRformat(z, false) << ", " << getRformat(x, false) << ", "
 			<< getRformat(y, false) << '\n';
 		temp = static_cast<uint64_t>(R[x]) * R[y];
-		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp >= 0xFFFFFFFF) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp > 0xFFFFFFFF) R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		result << "[U] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " <<
 			getRformat(z, true) << " = " << getRformat(x, true) << " * " << getRformat(y, true) << " = " <<
 			getHexformat(R[z], 8);
@@ -337,10 +344,11 @@ void OPType_U(uint_fast8_t OP, uint32_t instruction) {
 		break;
 	case (10):
 		result << "shl " << getRformat(z, false) << ", " << getRformat(x, false) << ", " << dec << y << '\n';
-		temp = static_cast<uint64_t>(R[x]) << static_cast<uint64_t>(y + 1);
+		temp = static_cast<uint64_t>(R[34] * 0x100000000);
+		temp = static_cast<uint64_t>((temp | R[x]) << y + 1);
 		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[z] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x4; else R[35] = R[35] & 0xFFFFFFFB;
+		if (R[34] != 0) R[35] = R[35] | 0x4;
 		result << "[U] ER = " << getHexformat(R[34], 8) << ", " << getRformat(z, true)
 			<< " = " << getRformat(x, true) << " << " << dec << (y + 1) << " = " << getHexformat(R[z], 8);
 		break;
@@ -405,27 +413,27 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 	case (1):
 		result << "addi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << '\n';
 		temp = static_cast<uint64_t>(R[y] + IM16);
-		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		R[x] = (temp & 0xFFFFFFFF);
-		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp >= 0xFFFFFFFF) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp > 0xFFFFFFFF) R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		result << "[F] FR = " << getHexformat(R[35], 8) << ", " << getRformat(x, true) << " = " << getRformat(y, true)
 			<< " + " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (3):
 		result << "subi " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << '\n';
-		temp = static_cast<uint64_t>(R[y]) - IM16;
-		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
+		temp = static_cast<uint64_t>(R[y] - IM16);
 		R[x] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp >= 0xFFFFFFFF) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp > 0xFFFFFFFF) R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		result << "[F] FR = " << getHexformat(R[35], 8) << ", " << getRformat(x, true) << " = " << getRformat(y, true)
 			<< " - " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
 	case (5):
 		result << "muli " << getRformat(x, false) << ", " << getRformat(y, false) << ", " << IM16 << '\n';
-		temp = static_cast<uint64_t>(R[y]) * IM16;
-		R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
+		temp = static_cast<uint64_t>(R[y] * IM16);
 		R[x] = temp & 0xFFFFFFFF;
-		if (R[34] != 0) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp >= 0xFFFFFFFF) R[35] = R[35] | 0x10; else R[35] = R[35] & 0xFFFFFFEF;
+		if (temp > 0xFFFFFFFF) R[34] = (temp & 0xFFFFFFFF00000000) >> 32;
 		result << "[F] FR = " << getHexformat(R[35], 8) << ", ER = " << getHexformat(R[34], 8) << ", " << getRformat(x, true)
 			<< " = " << getRformat(y, true) << " * " << getHexformat(IM16, 4) << " = " << getHexformat(R[x], 8);
 		break;
@@ -515,7 +523,8 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 			case (0x8808): Fpu.Zf = static_cast<float>(R[y]); break;
 			case (0x880C): Fpu.controle = R[y]; FPU(); break;
 			case (0x888B): TERMINAL << static_cast<char>(R[y] & 0x1F); break;
-			case (0x8080): TIMER = (R[y] & 0x2CFFFFFF); break;
+			case (0x8888): TERMINAL << static_cast<char>(R[y] & 0x1F); break;
+			case (0x8080): watchdog = R[y] & 0x80000000; TIMER = R[y] & 0x7FFFFFFF; break;
 			default: memory[(R[x] + IM16)] = R[y];
 		}
 		result << "[F] MEM[(" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << ") << 2]" << " = " << getRformat(y, true)
@@ -524,13 +533,20 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 	case (23):
 		result << "stb " << getRformat(x, false) << ", " << getHexformat(IM16, 4) << ", " << getRformat(y, false) << '\n';
 		switch (R[x] + IM16) {
-		case (0x8888): if (((R[x] + IM16) % 4) == 3) {
-			memory[0x888B] = (memory[0x888B] & 0xFFFFFF00) | (R[y] & 0x000000FF);
-			TERMINAL << static_cast<char>(memory[0x888B] & 0x000000FF);} break;
 		case (0x8800): Fpu.X = R[y]; break;
 		case (0x8804): Fpu.Y = R[y]; break;
 		case (0x8808): Fpu.Z = R[y]; break;
 		case (0x880C): Fpu.controle = R[y]; FPU(); break;
+		case (0x888B): if ((R[x] + IM16) % 4 == 3) {
+			char c; TERMINAL >> c;
+			uint32_t aux = (static_cast<uint32_t>(c) & 0xFFFFFF00) | (R[y] & 0x000000FF);
+			TERMINAL << static_cast<char>(aux & 0x000000FF);
+		} break;
+		case (0x8888): if ((R[x] + IM16) % 4 == 3) {
+			char c; TERMINAL >> c;
+			uint32_t aux = (static_cast<uint32_t>(c) & 0xFFFFFF00) | (R[y] & 0x000000FF);
+			TERMINAL << static_cast<char>(aux & 0x000000FF);
+		} break;
 		default:
 			switch ((R[x] + IM16) % 4) {
 			case 3:
@@ -545,7 +561,7 @@ void OPType_F(uint_fast8_t OP, uint32_t instruction) {
 			default:
 				memory[(R[x] + IM16) >> 2] = (memory[(R[x] + IM16) >> 2] & 0x00FFFFFF) | (R[y] << 24);
 				temp = (memory[(R[x] + IM16) >> 2] & 0xFF000000) >> 24;
-			} break;
+			}
 		}
 		result << "[F] MEM[" << getRformat(x, true) << " + " << getHexformat(IM16, 4) << "] = " << getRformat(y, true)
 			<< " = " << getHexformat(temp, 2);
@@ -633,6 +649,7 @@ void OPType_S(uint_fast8_t OP, uint32_t instruction, bool *okay) {
 	if (result.tellp() > 0)  SSOUT << result.str() << '\n';
 }
 
+// all operations of fpu
 void FPU() {
 	auto status = true;
 	auto *X_ = reinterpret_cast<uint32_t*>(&Fpu.Xf), 
