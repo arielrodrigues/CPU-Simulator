@@ -94,8 +94,10 @@ INSTRUÇÕES:
 
 -------
 
-Unidade de ponto flutuante (fpu) mapeada nas posições 0x8800, 0x8804, 0x8808, 0x880C da memória
-Terminal mapeado na posição 0x888B da memória
-Watchdog mapeado na posição 0x8080 da memória
+Unidade de ponto flutuante (fpu) mapeada nas posições 0x8800, 0x8804, 0x8808, 0x880C da memória.
+
+Terminal mapeado na posição 0x888B da memória.
+
+Watchdog mapeado na posição 0x8080 da memória.
 
 Arquivos de teste disponíveis em /files4test/ 
