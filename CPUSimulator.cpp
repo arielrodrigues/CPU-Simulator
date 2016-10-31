@@ -17,7 +17,7 @@
 
 /*
 * ARQ-2016.1
-* arielrodrigues_201310015491_poxim2.cpp
+* arielrodrigues_201310015491_poxim3.cpp
 * 
 * Registers:
 * R: IPC(37) CR(36) FR(35) ER(34) IR(33) PC(32)
@@ -50,6 +50,20 @@ struct fpu {
 	uint32_t ciclos = 0;
 };
 fpu Fpu;
+
+// Cache
+struct _block {
+	uint32_t block[4] = {0};
+	bool okay = false;
+	int age = 0;
+};
+struct _cache {
+	uint8_t identity;
+	_block line[8];
+};
+_cache c_data[2], c_instructions[2];
+uint8_t c_dataHit = 0, c_dataMiss = 0, 
+	c_instructionsHit = 0, c_instructionsMiss = 0;
 
 // out file
 std::stringstream SSOUT, TERMINAL;
@@ -95,7 +109,7 @@ void filetoMem(std::ifstream* file, std::string* fileInMemory) {
 // puts instructions in memory and free file in memory
 void InstoMem(std::string* fileInMemory) {
 	using namespace std;
-	char token = '\n';
+	char token = '0';
 	unsigned int i = 0;
 	unsigned long hexAux;
 	auto pos = string::npos;
@@ -103,15 +117,14 @@ void InstoMem(std::string* fileInMemory) {
 	do {
 		pos = fileInMemory->find(token);
 		if (pos != string::npos) {
-			hexAux = stoul(fileInMemory->substr(0, pos), NULL, 16);
+			try {
+				hexAux = stoul(fileInMemory->substr(pos, pos + 10), NULL, 16);
+			} catch (std::out_of_range) {
+				std::cout << "eita lele" << std::endl;
+			}
 			memory[i++] = hexAux;
-			*fileInMemory = fileInMemory->substr(pos + sizeof(token));
-		}
-		else if (fileInMemory->length() >= 10) {
-			hexAux = stoul(fileInMemory->substr(0, 10), NULL, 16);
-			memory[i] = hexAux;
-			break;
-		}
+			*fileInMemory = fileInMemory->substr(11);
+		} 
 	} while (pos != string::npos);
 	if (fileInMemory->length() > 0) fileInMemory->clear();
 }
@@ -124,8 +137,7 @@ void ReadFile(std::string fileName) {
 	if (!file.is_open()) {
 		cout << "Unable to open file." << endl;
 		exit(EXIT_FAILURE);
-	}
-	else {
+	} else {
 		// puts the file in the memory
 		filetoMem(&file, &fileInMemory);
 		memoryLength = [fileinMem = fileInMemory]()->uint32_t { auto j = 0, i = 0;
@@ -145,13 +157,72 @@ int getOPType(uint_fast8_t OP, bool okay) {
 	if (OP < 26) {
 		if (OP % 2 != 0) return 'F';
 		else return 'U';
-	} else if ((OP > 25) && (OP < 37)) return 'S';
+	} if ((OP > 25) && (OP < 37)) return 'S';
 	else {
 		R[35] = R[35] | 0x20; R[37] = R[32] + 1;
 		INT_flag = std::make_tuple(true, 3, 0, R[32]);
 		saveContext(R[35]);
 		return '0';
 	}
+}
+
+_block MemToCache() {
+
+/*	_block MemToCache() {
+	struct _block {
+	uint32_t block[4] = {0};
+	bool okay = false;
+	int age = 0;
+};
+*/
+	_block bloco;
+	bloco.
+}
+
+// cache reading manager
+uint32_t cacheReadingManager() {
+	uint32_t identity = (R[32] & 0xFF000000) >> 24,
+			 line = (R[32] & 0x00e00000) >> 21,
+			 word = (R[32] & 0x00180000) >> 19;
+	//poe for each aqui 
+	if (!c_data[0].line[line].okay && !c_data[1].line[line].okay) {
+		c_dataMiss++;
+	} else if (c_data[0].line[line].okay) {
+		if (c_data[0].line[line].identity == identity) {
+			c_dataHit++;
+			//pega dado 
+		} else { // isso n é um else
+			if (c_data[1].line[line].okay) {
+				if (c_data[1].line[line].identity == identity) {
+					c_dataHit++;
+					//pega dado 
+				}
+			}
+			//substitui dado na cache
+		}
+	}
+
+}
+
+// cache writing manager
+void cacheWritingManager() {
+	
+}
+
+std::string cacheStatistics() {
+	std::stringstream out;
+	uint32_t c_data_total = c_dataHit + c_dataMiss,
+		c_instructions_total = c_instructionsHit + c_instructionsMiss,
+		d_hit = round(c_dataHit / c_data_total * 100),
+		d_miss = round(c_dataMiss / c_data_total * 100),
+		ins_hit = round(c_instructionsHit / c_instructions_total * 100),
+		ins_miss = round(c_instructionsMiss / c_instructions_total * 100);
+
+	out << "[CACHE D STATISTICS] #Hit = " << c_dataHit << "(" << d_hit 
+		<< "%), #Miss = " << d_miss << "(" << d_miss << "%)\n" 
+		<< "[CACHE I STATISTICS] #Hit = " << c_instructionsHit << "(" << ins_hit
+		<< "%), #Miss = " << c_instructionsMiss << "(" << ins_miss << "%)";
+	return out.str();
 }
 
 // sort contexts in stack by priority
@@ -255,14 +326,14 @@ void ULA() {
 			if (f_Priority <= 0 || IE) INTManager(&okay);
 	}
 	if (TERMINAL.tellp() > 0) SSOUT << "[TERMINAL]\n" << TERMINAL.str() << '\n';
-	SSOUT << "[END OF SIMULATION]";
+	SSOUT << "[END OF SIMULATION]\n" << cacheStatistics();
 }
 
 // return register name indexing by number
 std::string getRformat(uint64_t n, bool uppercase) {
 	using namespace std;
 	if ((n < 32) || (n > 37)) 
-		return (uppercase) ? ('R' + to_string(n)): ('r' + to_string(n));
+		return (uppercase) ? 'R' + to_string(n): 'r' + to_string(n);
 	switch (n) {
 		case (32): return (uppercase) ? "PC" : "pc";
 		case (33): return (uppercase) ? "IR" : "ir";
