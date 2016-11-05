@@ -171,7 +171,7 @@ int get_op_type(uint_fast8_t OP, bool okay) {
 void cache_update_all_ages() {
 	for (int i = 0; i < 2; i++) 
 		for (int j = 0; j < 2; j++) 
-			for (int l = 0; l < 9; l++) {
+			for (int l = 0; l < 8; l++) {
 				if (caches[i].cache[j].line[l].alive)
 					caches[i].cache[j].line[l].age++;
 			}
@@ -273,16 +273,18 @@ void cache_writing_manager(int cacheNumber, uint32_t pos, uint32_t data) {
 	} else {
 		cache_print_access(cacheNumber, false, caches[cacheNumber].cache[0].line[c_line], 'W', pos);
 	}
-	memory[pos] = data;
+	memory[pos >> 2] = data;
 }
 
 std::string cache_statistics() {
 	std::stringstream out;
-	for (int i = 0; i < 2; i++) {
-		auto c_name = (i == 0) ? 'D': 'I';
-		auto cache_total = (caches[i].miss + caches[i].hit);
-		auto percent_hit = round(caches[i].hit / cache_total * 100),
-			 percent_miss = round(caches[i].miss / cache_total * 100);
+	uint32_t percent_hit = 0, percent_miss = 0;
+	float cache_total = float(0);
+	for (int i = 1; i >= 0; i--) {
+		auto c_name = (i == 1) ? 'D': 'I';
+		cache_total = caches[i].miss + caches[i].hit;
+		percent_hit = round(caches[i].hit / cache_total * 100);
+		percent_miss = round(caches[i].miss / cache_total * 100);
 		out << "[CACHE " << c_name << " STATISTICS] #Hit = " << caches[i].hit << "("
 			<< percent_hit << "%), #Miss = " << caches[i].miss << "(" << percent_miss << "%)\n";
 	}
@@ -331,9 +333,9 @@ void int_manager(bool *okay) {
 	flag_is_up = false; R[36] = flag_CR; 
 
 	switch (flag_iCode) {
-		case(0): SSOUT << "[HARDWARE INTERRUPTION 1]\n"; IR = memory[1]; break;
+		case(0): SSOUT << "[HARDWARE INTERRUPTION 1]\n"; IR = cache_reading_manager(0, 1 << 2); break;
 		case(1): SSOUT << "[SOFTWARE INTERRUPTION]\n"; break;
-		case(2): SSOUT << "[HARDWARE INTERRUPTION 2]\n"; IR = memory[2]; break;
+		case(2): SSOUT << "[HARDWARE INTERRUPTION 2]\n"; IR = cache_reading_manager(0, 2 << 2); break;
 		case(3): SSOUT << "[INVALID INSTRUCTION @ " << get_hex_format(R[32] << 2, 8) <<
 			"]\n[SOFTWARE INTERRUPTION]\n"; break;
 	}
@@ -347,6 +349,7 @@ void int_manager(bool *okay) {
 	if (INTRoutine) {
 		R[35] = context.FR; R[37] = context.IPC;
 	}
+	cache_update_all_ages();
 }
 
 // checks if CPU still alive?
@@ -385,7 +388,7 @@ void ULA() {
 			case ('S'): op_type_S(OP, R[33], &okay); break;
 			default: break;
 		}
-		write_to_file("saida.txt");
+		//write_to_file("saida.txt");
 		Watchdog(); fpu_manager(); cache_update_all_ages();
 		if (flag_is_up)
 			if (flag_priority <= 0 || IE) int_manager(&okay);
@@ -536,7 +539,7 @@ void op_type_U(uint_fast8_t OP, uint32_t instruction) {
 		R[x] = memory[++R[y]];
 		result << "[U] " << get_Rformat(x, true) << " = MEM[++" << get_Rformat(y, true) << "] = "
 			<< get_hex_format(R[x], 8);
-		cache_reading_manager(0, R[y] << 2);
+		cache_reading_manager(1, R[y] << 2);
 	}
 	if (result.tellp() > 0)  SSOUT << result.str() << '\n';
 }
@@ -646,10 +649,10 @@ void op_type_F(uint_fast8_t OP, uint32_t instruction) {
 				} break;
 			default:
 				switch ((R[y] + IM16) % 4) {
-					case 3: R[x] = (cache_reading_manager(1, (R[y] + IM16) >> 2) & 0x000000FF); break;
-					case 2: R[x] = (cache_reading_manager(1, (R[y] + IM16) >> 2) & 0x0000FF00) >> 8; break;
-					case 1:	R[x] = (cache_reading_manager(1, (R[y] + IM16) >> 2) & 0x00FF0000) >> 16; break;
-					case 0: R[x] = (cache_reading_manager(1, (R[y] + IM16) >> 2) & 0xFF000000) >> 24;
+					case 3: R[x] = (cache_reading_manager(1, R[y] + IM16) & 0x000000FF); break;
+					case 2: R[x] = (cache_reading_manager(1, R[y] + IM16) & 0x0000FF00) >> 8; break;
+					case 1:	R[x] = (cache_reading_manager(1, R[y] + IM16) & 0x00FF0000) >> 16; break;
+					case 0: R[x] = (cache_reading_manager(1, R[y] + IM16) & 0xFF000000) >> 24;
 				} break;
 		}
 		result << "[F] " << get_Rformat(x, true) << " = MEM[" << get_Rformat(y, true) << " + " << get_hex_format(IM16, 4) << "] = "
