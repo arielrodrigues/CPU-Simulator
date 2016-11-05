@@ -26,7 +26,7 @@
 
 // array of memory: bitset of 32 pos
 uint32_t* memory = nullptr;
-int memoryLength = 0;
+int MEMORYLENGHT = 0;
 
 // registers
 uint32_t R[64];
@@ -53,7 +53,7 @@ fpu Fpu;
 
 // Cache
 struct block_t {
-	uint32_t identity, block[4] = {0};
+	uint32_t identity, data[4] = {0x0};
 	bool alive = false;
 	int age = 0;
 };
@@ -62,7 +62,7 @@ struct cache_t {
 };
 struct _cache {
 	cache_t cache[2];
-	uint32_t hit = 0, miss;
+	uint32_t hit = 0, miss = 0;
 };
 _cache caches[2];
 
@@ -141,9 +141,9 @@ void read_file(std::string fileName) {
 	} else {
 		// puts the file in the memory
 		file_to_memory(&file, &fileInMemory);
-		memoryLength = [fileinMem = fileInMemory]()->uint32_t { auto j = 0, i = 0;
+		MEMORYLENGHT = [fileinMem = fileInMemory]()->uint32_t { auto j = 0, i = 0;
 		for (; i <= fileinMem.length(); j += fileinMem[i++] == '\n'); return j; }();
-		memory = new uint32_t[memoryLength];
+		memory = new uint32_t[MEMORYLENGHT];
 		instructions_to_memory(&fileInMemory);
 	}
 }
@@ -182,8 +182,10 @@ bool search_in_cache(uint8_t cacheNumber, uint32_t pos) {
 	auto c_identity = (pos & 0xFFFFFF80) >> 7, c_line = (pos & 0x70) >> 4;
 	for (auto i = 0; i < 2; i++) {
 		if (caches[cacheNumber].cache[i].line[c_line].alive)
-			if (caches[cacheNumber].cache[i].line[c_line].identity == c_identity)
+			if (caches[cacheNumber].cache[i].line[c_line].identity == c_identity) {
+				caches[cacheNumber].cache[i].line[c_line].age = 0;
 				return true;
+			}
 	}
 	return false;
 }
@@ -192,10 +194,11 @@ bool search_in_cache(uint8_t cacheNumber, uint32_t pos) {
 block_t mem_to_cache(uint32_t pos) {
 	block_t bloco;	
 	auto c_identity = (pos & 0xFFFFFF80) >> 7, c_word = (pos & 0xC) >> 2;
-	for (uint32_t i = pos - c_word, j = 0; j < 4; i++,j++)
-			bloco.block[j] = (i >= 0x0)? memory[i]: 0x0;
+	pos = pos >> 2;
+	for (uint32_t i = pos - c_word, j = 0; j < 4; i++, j++)
+		bloco.data[j] = (i >= 0x0 && i < MEMORYLENGHT) ? memory[i] : 0x0;
+	bloco.identity = c_identity;
 	bloco.alive = true;
-	bloco.identity = (pos & 0xFFFFFF80) >> 7;
 	return bloco;
 }
 
@@ -205,24 +208,31 @@ void cache_print_access(int cacheNumber, bool valid, block_t block, char type, u
 		c_success = valid ? "HIT" : "MISS";
 	auto c_symbol = cacheNumber == 0 ? 'I' : 'D';
 	auto c_identity = (pos & 0xFFFFFF80) >> 7, c_line = (pos & 0x70) >> 4;
-	bool identity_okay = false;
+	bool identity_okay;
 
 	SSOUT << "[CACHE " << c_symbol << " LINE " << c_line << " "<< c_name <<" "
 		  << c_success<<" @ " << get_hex_format(pos, 8) << "]\n";
 	for (int i = 0; i < 2; i++) {
-		if (valid && caches[cacheNumber].cache[i].line[c_line].identity == c_identity){
-			c_validity = "VALID"; identity_okay = true;
-		} else {
-			c_validity = "INVALID"; identity_okay = false;
-		}
-		SSOUT << "[SET " << i << ": " << c_validity << ", AGE " << block.age << ", DATA ";
-		if (identity_okay) {
-			for (int j = 0; j < 3; j++)
-				SSOUT << get_hex_format(block.block[j], 8) << " ";
-			SSOUT << get_hex_format(block.block[3], 8) << "]\n";
-		} else SSOUT << "0x00000000 0x00000000 0x00000000 0x00000000]\n";
+		identity_okay = caches[cacheNumber].cache[i].line[c_line].identity == c_identity? true: false;
+		c_validity = caches[cacheNumber].cache[i].line[c_line].alive? "VALID": "INVALID";
+		SSOUT << "[SET " << i << ": " << c_validity << ", AGE " << 
+			caches[cacheNumber].cache[i].line[c_line].age << ", DATA ";
+		for (int j = 0; j < 3; j++)
+			SSOUT << get_hex_format(caches[cacheNumber].cache[i].line[c_line].data[j], 8) << " ";
+		SSOUT << get_hex_format(caches[cacheNumber].cache[i].line[c_line].data[3], 8) << "]\n";
 	}
 	valid ? caches[cacheNumber].hit++ : caches[cacheNumber].miss++;
+}
+
+// line is alive?
+bool cache_check_line_alive(uint32_t cacheNumber, uint32_t pos) {
+	auto c_line = (pos & 0x70) >> 4;
+	if (!caches[cacheNumber].cache[0].line[c_line].alive &&
+		!caches[cacheNumber].cache[1].line[c_line].alive) {
+		cache_print_access(cacheNumber, false, caches[cacheNumber].cache[0].line[c_line], 'R', pos);
+		return false;
+	}
+	return true;
 }
 
 // cache reading manager
@@ -230,23 +240,23 @@ uint32_t cache_reading_manager(int cacheNumber, uint32_t pos) {
 	auto c_identity = (pos & 0xFFFFFF80) >> 7,
 		 c_line = (pos & 0x70) >> 4, c_word = (pos & 0xC) >> 2;
 	
-	if (!caches[cacheNumber].cache[0].line[c_line].alive && 
-		!caches[cacheNumber].cache[1].line[c_line].alive) {
-		cache_print_access(cacheNumber, false, caches[cacheNumber].cache[0].line[c_line], 'R', pos);
+	if (!cache_check_line_alive(cacheNumber, pos)) {
 		caches[cacheNumber].cache[0].line[c_line] = mem_to_cache(pos);
-		return caches[cacheNumber].cache[0].line[c_line].block[c_word];
+		return caches[cacheNumber].cache[0].line[c_line].data[c_word];
 	} 
 	if (search_in_cache(cacheNumber, pos)) {
 		auto i = caches[cacheNumber].cache[0].line[c_line].identity == c_identity ? 0 : 1;
 		cache_print_access(cacheNumber, true, caches[cacheNumber].cache[i].line[c_line], 'R', pos);
-		caches[cacheNumber].cache[i].line[c_line].age = 0;
-		return caches[cacheNumber].cache[i].line[c_line].block[c_word];
+		return caches[cacheNumber].cache[i].line[c_line].data[c_word];
 	}
-	auto i = caches[cacheNumber].cache[0].line[c_line].age >= 
+	uint8_t i;
+	if (!caches[cacheNumber].cache[0].line[c_line].alive) i = 0;
+	else if (!caches[cacheNumber].cache[1].line[c_line].alive) i = 1;
+	else i = caches[cacheNumber].cache[0].line[c_line].age >= 
 		     caches[cacheNumber].cache[1].line[c_line].age ? 0 : 1;
 	cache_print_access(cacheNumber, false, caches[cacheNumber].cache[i].line[c_line], 'R', pos);
 	caches[cacheNumber].cache[i].line[c_line] = mem_to_cache(pos);
-	return caches[cacheNumber].cache[i].line[c_line].block[c_word];
+	return caches[cacheNumber].cache[i].line[c_line].data[c_word];
 }
 
 // cache writing manager
@@ -258,7 +268,7 @@ void cache_writing_manager(int cacheNumber, uint32_t pos, uint32_t data) {
 		auto i = caches[cacheNumber].cache[0].line[c_line].identity ==
 			c_identity ? 0 : 1;
 		cache_print_access(cacheNumber, true, caches[cacheNumber].cache[i].line[c_line], 'W', pos);
-		caches[cacheNumber].cache[i].line[c_line].block[c_word] = data;
+		caches[cacheNumber].cache[i].line[c_line].data[c_word] = data;
 		caches[cacheNumber].cache[i].line[c_line].age = 0;
 	} else {
 		cache_print_access(cacheNumber, false, caches[cacheNumber].cache[0].line[c_line], 'W', pos);
@@ -519,7 +529,7 @@ void op_type_U(uint_fast8_t OP, uint32_t instruction) {
 		(x < 32) ? memory[R[x]] = R[y]: 0;
 		result << "[U] MEM[" << get_Rformat(x, true) << "--] = " << get_Rformat(y, true) << " = "
 			<< get_hex_format(memory[R[x]], 8);
-		cache_writing_manager(0, R[x]--, R[y]);
+		cache_writing_manager(1, R[x]-- << 2, R[y]);
 		break;
 	case (25):
 		result << "pop " << get_Rformat(x, false) << ", " << get_Rformat(y, false) << '\n';
@@ -615,7 +625,7 @@ void op_type_F(uint_fast8_t OP, uint32_t instruction) {
 			case (0x8804): R[x] = Fpu.Y; break;
 			case (0x8808): R[x] = Fpu.Z; break;
 			case (0x880C): R[x] = Fpu.controle; break;
-			default: R[x] = static_cast<uint64_t>(cache_reading_manager(1, R[y] + IM16));
+			default: R[x] = static_cast<uint64_t>(cache_reading_manager(1, (R[y] + IM16)<<2));
 		}
 		result << "[F] " << get_Rformat(x, true) << " = MEM[(" << get_Rformat(y, true) << " + " << get_hex_format(IM16, 4)
 			<< ") << 2]" << " = " << get_hex_format(R[x], 8);
@@ -657,7 +667,7 @@ void op_type_F(uint_fast8_t OP, uint32_t instruction) {
 			case (0x888B << 2): bufferTerminal = R[y] & 0x1F;
 						   TERMINAL << static_cast<char>(bufferTerminal); break;
 			case (0x8080): watchdog = R[y] & 0x80000000; TIMER = R[y] & 0x7FFFFFFF; break;
-			default: cache_writing_manager(1, (R[x] + IM16), R[y]);
+			default: cache_writing_manager(1, (R[x] + IM16) << 2, R[y]);
 		}
 		result << "[F] MEM[(" << get_Rformat(x, true) << " + " << get_hex_format(IM16, 4) << ") << 2]" << " = " << get_Rformat(y, true)
 			<< " = " << get_hex_format(R[y], 8);
