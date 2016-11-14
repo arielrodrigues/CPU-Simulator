@@ -86,6 +86,10 @@ std::string get_hex_format(uint64_t, int);
 // main :)
 int main(int argc, char *argv[]) {
 	using namespace std;
+	if (argc != 3){
+		cout << "Usage:" << argv[0] << " <input_file_name> <output_file_name>\n";
+		return 0;
+	}
 	string inFileName = argv[1], outFileName = argv[2];
 	read_file(inFileName);
 	ULA();
@@ -141,8 +145,8 @@ void read_file(std::string fileName) {
 	} else {
 		// puts the file in the memory
 		file_to_memory(&file, &fileInMemory);
-		MEMORYLENGHT = [fileinMem = fileInMemory]()->uint32_t { auto j = 0, i = 0;
-		for (; i <= fileinMem.length(); j += fileinMem[i++] == '\n'); return j; }();
+		MEMORYLENGHT = [fileinMem = fileInMemory]()->uint32_t { auto j = 0;
+		for (size_t i; i <= fileinMem.length(); j += fileinMem[i++] == '\n'); return j; }();
 		memory = new uint32_t[MEMORYLENGHT];
 		instructions_to_memory(&fileInMemory);
 	}
@@ -150,6 +154,7 @@ void read_file(std::string fileName) {
 
 // return OPType: U, F or S
 int get_op_type(uint_fast8_t OP, bool okay) {
+	(void) okay;
 	// exceptions
 	if ((OP == 11) || (OP == 25)) return 'U';
 	if (((OP == 20) || (OP == 22)) || ((OP > 36) && (OP < 41))) return 'F';
@@ -195,7 +200,7 @@ block_t mem_to_cache(uint32_t pos) {
 	block_t bloco;	
 	auto c_identity = (pos & 0xFFFFFF80) >> 7, c_word = (pos & 0xC) >> 2;
 	pos = pos >> 2;
-	for (uint32_t i = pos - c_word, j = 0; j < 4; i++, j++)
+	for (int32_t i = pos - c_word, j = 0; j < 4; i++, j++)
 		bloco.data[j] = (i >= 0x0 && i < MEMORYLENGHT) ? memory[i] : 0x0;
 	bloco.identity = c_identity;
 	bloco.alive = true;
@@ -207,13 +212,11 @@ void cache_print_access(int cacheNumber, bool valid, block_t block, char type, u
 	std::string c_name = type == 'R' ? "READ" : "WRITE", c_validity, 
 		c_success = valid ? "HIT" : "MISS";
 	auto c_symbol = cacheNumber == 0 ? 'I' : 'D';
-	auto c_identity = (pos & 0xFFFFFF80) >> 7, c_line = (pos & 0x70) >> 4;
-	bool identity_okay;
+	auto c_line = (pos & 0x70) >> 4;
 
 	SSOUT << "[CACHE " << c_symbol << " LINE " << c_line << " "<< c_name <<" "
 		  << c_success<<" @ " << get_hex_format(pos, 8) << "]\n";
 	for (int i = 0; i < 2; i++) {
-		identity_okay = caches[cacheNumber].cache[i].line[c_line].identity == c_identity? true: false;
 		c_validity = caches[cacheNumber].cache[i].line[c_line].alive? "VALID": "INVALID";
 		SSOUT << "[SET " << i << ": " << c_validity << ", AGE " << 
 			caches[cacheNumber].cache[i].line[c_line].age << ", DATA ";
@@ -222,6 +225,7 @@ void cache_print_access(int cacheNumber, bool valid, block_t block, char type, u
 		SSOUT << get_hex_format(caches[cacheNumber].cache[i].line[c_line].data[3], 8) << "]\n";
 	}
 	valid ? caches[cacheNumber].hit++ : caches[cacheNumber].miss++;
+	(void) block;
 }
 
 // line is alive?
@@ -305,7 +309,7 @@ void sort_context() {
 // save CPU context before get a level down
 void save_context(uint32_t FR) {
 	uint_fast8_t i = 0;
-	for (; i < 3, std::get<0>(INTStack[i].INT_flag); i++)
+	for (; i < 3 && std::get<0>(INTStack[i].INT_flag); i++)
 		if (get_iCode(INTStack[i].INT_flag) == get_iCode(INT_flag)) break;
 	INTStack[i].FR = FR; INTStack[i].INT_flag = INT_flag; INTStack[i].IPC = R[37];
 	if (!INTRoutine) INTRoutine = true; 
