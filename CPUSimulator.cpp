@@ -146,7 +146,7 @@ void read_file(std::string fileName) {
 		// puts the file in the memory
 		file_to_memory(&file, &fileInMemory);
 		MEMORYLENGHT = [fileinMem = fileInMemory]()->uint32_t { auto j = 0;
-		for (size_t i; i <= fileinMem.length(); j += fileinMem[i++] == '\n'); return j; }();
+		for (size_t i = 0; i <= fileinMem.length(); j += fileinMem[i++] == '\n'); return j; }();
 		memory = new uint32_t[MEMORYLENGHT];
 		instructions_to_memory(&fileInMemory);
 	}
