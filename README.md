@@ -1,4 +1,4 @@
-#A simulator for a simple CPU in C++
+# A simulator for a simple CPU in C++
 Architeture by Bruno Otavio Piedade Prado [DCOMP-UFS] - for details about architeture contact Bruno Otavio Piedade Prado in https://admin.dcomp.ufs.br/perfil/13227/
 
 (Sorry, only br portuguese below)
